@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste Técnico: Cotadora BRL → Fiat</title>
+<style>
+  :root {
+    --ink: #1c2330;
+    --muted: #5b6472;
+    --paper: #fbfbf9;
+    --card: #ffffff;
+    --line: #e3e2dc;
+    --accent: #0e6b5c;
+    --accent-soft: #eaf3f0;
+    --code-bg: #f2f3f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 28px 80px;
+  }
+  header { border-bottom: 3px solid var(--ink); padding-bottom: 20px; margin-bottom: 36px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.15;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: 21px;
+    margin: 40px 0 12px;
+    padding-top: 8px;
+    font-weight: 700;
+  }
+  h2::before {
+    content: "";
+    display: block;
+    width: 34px;
+    height: 3px;
+    background: var(--accent);
+    margin-bottom: 10px;
+  }
+  h3 {
+    font-size: 17px;
+    margin: 24px 0 8px;
+    font-weight: 700;
+  }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 8px; }
+  strong { font-weight: 700; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+  .formula {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin: 18px 0;
+  }
+  .formula code { background: transparent; border: 0; padding: 0; white-space: normal; }
+  .callout {
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  table {
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+    font-size: 16px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 14px;
+    text-align: left;
+  }
+  th { background: var(--code-bg); font-weight: 700; }
+  .diagram {
+    margin: 18px 0 22px;
+    padding: 10px 6px 4px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .diagram svg { display: block; width: 100%; height: auto; }
+  .diagram figcaption {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  a { color: var(--accent); }
+  footer {
+    margin-top: 56px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  @media print {
+    body { background: #fff; font-size: 12pt; }
+    .page { padding: 0; max-width: 100%; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <p class="eyebrow">Teste técnico · Node ou Go + React</p>
+  <h1>Cotadora BRL → Fiat</h1>
+</header>
+
+
+<h2>Entregáveis</h2>
+<p>Repositório <strong>público no GitHub</strong> contendo:</p>
+<ol>
+  <li><strong>Código</strong> (backend + front), com histórico de commits real e incremental. Não entregue tudo em um commit só.</li>
+  <li><strong><code>README.md</code></strong>: como rodar, incluindo o modo simulado.</li>
+  <li><strong><code>DECISIONS.md</code></strong>: as decisões técnicas que você julgar relevantes, cada uma com a alternativa que você rejeitou e o porquê da escolha. Pode documentar sessões de brainstorm que você teve com a IA.</li>
+</ol>
+
+<h2>Contexto</h2>
+<p>Neste teste você vai construir uma cotação de câmbio: o cliente autenticado escolhe uma moeda de destino, informa quantas unidades quer comprar, e o sistema calcula quanto isso custa em <strong>reais (BRL)</strong>, usando USDT como moeda-ponte. A cotação tem prazo de validade e, se confirmada, é registrada no histórico do cliente.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fluxo BRL → USDT → moeda de destino">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1c2330"/>
+      </marker>
+    </defs>
+    <!-- caixas -->
+    <rect x="20" y="45" width="150" height="60" rx="6" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="95" y="71" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" font-weight="700" fill="#1c2330">BRL</text>
+    <text x="95" y="92" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">reais do cliente</text>
+
+    <rect x="285" y="45" width="150" height="60" rx="6" fill="#eaf3f0" stroke="#0e6b5c" stroke-width="1.5"/>
+    <text x="360" y="71" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" font-weight="700" fill="#0e6b5c">USDT</text>
+    <text x="360" y="92" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">moeda-ponte</text>
+
+    <rect x="550" y="45" width="150" height="60" rx="6" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="625" y="71" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" font-weight="700" fill="#1c2330">MXN, EUR…</text>
+    <text x="625" y="92" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">moeda de destino</text>
+
+    <!-- setas -->
+    <line x1="172" y1="75" x2="283" y2="75" stroke="#1c2330" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <text x="227" y="30" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#1c2330">compra USDT</text>
+    <text x="227" y="127" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="#5b6472">USDT/BRL · Binance ou OKX</text>
+
+    <line x1="437" y1="75" x2="548" y2="75" stroke="#1c2330" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <text x="492" y="30" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#1c2330">vende USDT</text>
+    <text x="492" y="127" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="#5b6472">USDT/&lt;destino&gt; · Binance</text>
+  </svg>
+</figure>
+
+<h2>Regras de negócio</h2>
+
+<h3>Moedas suportadas</h3>
+<p>O sistema oferece cotação para as seguintes moedas de destino:</p>
+<table>
+  <thead><tr><th>código</th><th>moeda</th></tr></thead>
+  <tbody>
+    <tr><td><code>EUR</code></td><td>euro</td></tr>
+    <tr><td><code>ARS</code></td><td>peso argentino</td></tr>
+    <tr><td><code>COP</code></td><td>peso colombiano</td></tr>
+    <tr><td><code>MXN</code></td><td>peso mexicano</td></tr>
+    <tr><td><code>ZAR</code></td><td>rand sul-africano</td></tr>
+  </tbody>
+</table>
+<p>Os pares de negociação correspondentes devem ser obtidos da Binance via API. Moedas fora dessa lista não podem ser cotadas.</p>
+
+<h3>Usuários e spread</h3>
+<p>Os usuários são pré-cadastrados via seed. Cada usuário tem um spread próprio, aplicado às suas cotações.</p>
+<table>
+  <thead><tr><th>username</th><th>spread</th></tr></thead>
+  <tbody>
+    <tr><td><code>alice</code></td><td>0%</td></tr>
+    <tr><td><code>bob</code></td><td>0,6%</td></tr>
+    <tr><td><code>carol</code></td><td>1%</td></tr>
+  </tbody>
+</table>
+
+<h3>Book, bid e ask</h3>
+<p>As corretoras publicam um <strong>book de ofertas</strong>. De um lado está quem quer comprar, do outro quem quer vender. A maior oferta de compra se chama <strong>bid</strong> e a menor oferta de venda se chama <strong>ask</strong>. Entre as duas sempre existe uma diferença. Quem executa uma ordem a mercado negocia contra o lado oposto ao seu. Se você compra, paga o ask. Se você vende, recebe o bid.</p>
+
+<p>Exemplo de book do par <code>USDTBRL</code>, com preço em BRL por 1 USDT:</p>
+<table>
+  <thead><tr><th>lado</th><th>preço</th><th>quantidade</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>ask</td><td><code>5,03</code></td><td>12.000</td><td></td></tr>
+    <tr><td>ask</td><td><code>5,02</code></td><td>3.500</td><td></td></tr>
+    <tr><td>ask</td><td><code>5,01</code></td><td>800</td><td><strong>melhor ask</strong></td></tr>
+    <tr><td>bid</td><td><code>4,99</code></td><td>1.200</td><td><strong>melhor bid</strong></td></tr>
+    <tr><td>bid</td><td><code>4,98</code></td><td>6.000</td><td></td></tr>
+    <tr><td>bid</td><td><code>4,97</code></td><td>9.400</td><td></td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <p style="margin:0"><strong>Profundidade não faz parte do teste.</strong> Use só o topo do book, ou seja, o melhor bid e o melhor ask. Não precisa verificar se a quantidade ofertada cobre a operação do cliente. Assuma que o melhor preço atende qualquer volume.</p>
+</div>
+
+<h3>Cálculo do preço</h3>
+<p>O sistema compra USDT com os reais do cliente e vende esses USDT pela moeda de destino. Sobre o custo resultante aplica-se o spread do usuário. O preço apresentado ao cliente tem <strong>2 casas decimais</strong>, arredondado para cima.</p>
+<div class="formula">
+  <p style="margin:0"><strong>Referência para validação:</strong> comprando USDT a <code>5,00</code> BRL e vendendo esses USDT a <code>16,00</code> MXN, com spread de 0,6%, 100 MXN custam <code>R$ 31,44</code>.</p>
+</div>
+
+<h3>Precisão numérica</h3>
+<p>Esperamos que o código use tipos adequados para operar, arredondar e armazenar valores monetários e os resultados dos cálculos.</p>
+
+<h3>Cotação e confirmação</h3>
+<p>Cada cotação é válida por <strong>10 segundos</strong> a partir da criação e pode ser confirmada uma única vez. Confirmações fora do prazo não são registradas. Requisições concorrentes ou repetidas de confirmação para a mesma cotação devem resultar em exatamente uma confirmação registrada.
+
+<h2>Fontes de preço</h2>
+<ul>
+  <li><strong>Binance</strong>: sempre via REST. A cada cotação, o sistema consulta o par USDT/BRL e o par USDT/&lt;moeda de destino&gt;.</li>
+  <li><strong>OKX</strong>: via WebSocket, mantendo em memória o último preço recebido do par USDT/BRL. Como redundância, se a conexão cair ou parar de entregar preços, o sistema passa a consultar a REST da OKX a cada 1 segundo até que o WebSocket volte a operar. A cotação não espera a OKX. Ela usa o último preço em memória, vindo do socket ou do polling, ou trata a OKX como indisponível.</li>
+</ul>
+<h3>Composição</h3>
+<p>Na perna USDT/BRL, quando as duas corretoras estão disponíveis, vale a que resultar no menor custo em reais para o cliente. Quando a OKX está indisponível, o sistema usa apenas a Binance. A perna USDT/&lt;moeda de destino&gt; vem sempre da Binance.</p>
+<h3>Indisponibilidade</h3>
+<p>Se a OKX estiver indisponível, o sistema opera apenas com a Binance. Se a Binance estiver indisponível, o sistema não gera cotações. Falhas de rede, timeouts e respostas inválidas das corretoras não devem derrubar o serviço nem resultar em erros genéricos para o cliente.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Composição do preço: USDT/BRL (a corretora mais barata entre Binance e OKX) e USDT/destino (Binance)">
+    <defs>
+      <marker id="arrowA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1c2330"/>
+      </marker>
+    </defs>
+
+    <!-- USDT/BRL -->
+    <rect x="20" y="20" width="330" height="160" rx="8" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="185" y="48" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#1c2330">USDT/BRL</text>
+
+    <rect x="40" y="68" width="135" height="66" rx="6" fill="#eaf3f0" stroke="#0e6b5c" stroke-width="1.5"/>
+    <text x="107" y="96" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#0e6b5c">Binance</text>
+    <text x="107" y="116" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="12" fill="#5b6472">REST</text>
+
+    <rect x="195" y="68" width="135" height="66" rx="6" fill="#eaf3f0" stroke="#0e6b5c" stroke-width="1.5"/>
+    <text x="262" y="96" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#0e6b5c">OKX</text>
+    <text x="262" y="116" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="12" fill="#5b6472">ver diagrama abaixo</text>
+
+    <text x="185" y="162" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">a mais barata para o cliente</text>
+
+    <!-- seta -->
+    <line x1="352" y1="100" x2="428" y2="100" stroke="#1c2330" stroke-width="1.5" marker-end="url(#arrowA)"/>
+
+    <!-- USDT/destino -->
+    <rect x="430" y="20" width="270" height="160" rx="8" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="565" y="48" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#1c2330">USDT/&lt;destino&gt;</text>
+
+    <rect x="497" y="68" width="135" height="66" rx="6" fill="#eaf3f0" stroke="#0e6b5c" stroke-width="1.5"/>
+    <text x="564" y="96" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#0e6b5c">Binance</text>
+    <text x="564" y="116" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="12" fill="#5b6472">REST</text>
+
+    <text x="565" y="162" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">sempre Binance</text>
+  </svg>
+  <figcaption>Composição do preço</figcaption>
+</figure>
+
+<figure class="diagram">
+  <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OKX: WebSocket alimenta o último preço em memória; polling REST a cada 1 segundo como redundância">
+    <defs>
+      <marker id="arrowB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1c2330"/>
+      </marker>
+      <marker id="arrowBm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#5b6472"/>
+      </marker>
+    </defs>
+
+    <!-- OKX -->
+    <rect x="20" y="50" width="160" height="66" rx="6" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="100" y="78" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#1c2330">OKX</text>
+    <text x="100" y="98" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">USDT/BRL</text>
+
+    <!-- websocket -->
+    <line x1="182" y1="68" x2="318" y2="68" stroke="#1c2330" stroke-width="1.5" marker-end="url(#arrowB)"/>
+    <text x="250" y="60" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="#1c2330">WebSocket</text>
+
+    <!-- polling -->
+    <line x1="182" y1="98" x2="318" y2="98" stroke="#5b6472" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowBm)"/>
+    <text x="250" y="116" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="#5b6472">REST a cada 1s</text>
+    <text x="250" y="132" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="11" fill="#5b6472">se o socket cair ou parar de enviar</text>
+
+    <!-- memória -->
+    <rect x="320" y="50" width="180" height="66" rx="6" fill="#eaf3f0" stroke="#0e6b5c" stroke-width="1.5"/>
+    <text x="410" y="78" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="14" font-weight="700" fill="#0e6b5c">último preço</text>
+    <text x="410" y="98" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="13" fill="#5b6472">em memória</text>
+
+    <!-- saída -->
+    <line x1="502" y1="83" x2="538" y2="83" stroke="#1c2330" stroke-width="1.5" marker-end="url(#arrowB)"/>
+    <rect x="540" y="50" width="160" height="66" rx="6" fill="#ffffff" stroke="#1c2330" stroke-width="1.5"/>
+    <text x="620" y="78" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="14" font-weight="700" fill="#1c2330">Cotação</text>
+    <text x="620" y="98" text-anchor="middle" font-family="Palatino, Georgia, serif" font-size="12" fill="#5b6472">lê, não aguarda</text>
+  </svg>
+  <figcaption>OKX: WebSocket com redundância por polling</figcaption>
+</figure>
+<h3>Volume</h3>
+<p>O sistema deve suportar milhares de usuários gerando cotações simultaneamente. A Binance limita requisições por IP e bane temporariamente quem excede o limite, e o sistema não deve chegar perto desse limite nem sob pico. O spread já cobre a defasagem de menos de um segundo entre o preço de mercado e o preço cotado, então não é necessário que cada cotação reflita o preço exato daquele instante. Existe mais de uma forma de resolver isso. Registre no <code>DECISIONS.md</code> as que você considerou e por que escolheu a sua.</p>
+
+<h2>Modo simulado</h2>
+<p>O sistema deve poder ser iniciado em um modo em que todas as corretoras são substituídas por simulações locais, sem acesso à rede. Nesse modo o sistema é totalmente operável: login, criação de cotações, confirmação, expiração e histórico funcionam normalmente com preços simulados. A forma de ativar o modo fica a seu critério e deve estar documentada no <code>README.md</code>.</p>
+
+<h2>O que construir</h2>
+<p><strong>Backend</strong> em Node (TypeScript) ou Go, expondo uma API HTTP, com persistência em <strong>SQLite</strong>:</p>
+<ol>
+  <li>Login por <code>username</code>, sem senha.</li>
+  <li>Listar as moedas disponíveis para cotação.</li>
+  <li>Criar cotação: recebe a moeda de destino e a quantidade, calcula e retorna o preço.</li>
+  <li>Confirmar cotação.</li>
+  <li>Listar o histórico de cotações confirmadas do usuário autenticado.</li>
+</ol>
+<div class="callout">
+  <p style="margin:0">A autenticação por username sem senha é <strong>deliberada</strong> e existe apenas para acelerar o teste. Não implemente senha, cadastro, recuperação ou qualquer outro mecanismo de segurança de acesso. Nada disso é avaliado e só consome tempo.</p>
+</div>
+
+<p><strong>Cliente em React</strong> com 3 telas:</p>
+<ol>
+  <li><strong>Login</strong>: campo de username.</li>
+  <li><strong>Cotação</strong>: seleção da moeda, input de quantidade e botão de criar cotação. Ao criar, mostra o preço e um botão <strong>Confirmar</strong>. Se confirmar fora do prazo, mostra que a cotação expirou.</li>
+  <li><strong>Histórico</strong>: lista as cotações confirmadas com moeda, quantidade, preço por unidade, preço total e data/hora. Sem filtros e sem paginação.</li>
+</ol>
+
+<h2>Documentação das corretoras</h2>
+<p>Use as APIs públicas oficiais (não exigem API key nem cadastro). Encontre os endpoints certos aqui:</p>
+<ul>
+  <li>Binance Spot: <a href="https://developers.binance.com/docs/binance-spot-api-docs">https://developers.binance.com/docs/binance-spot-api-docs</a></li>
+  <li>OKX v5: <a href="https://www.okx.com/docs-v5/en/">https://www.okx.com/docs-v5/en/</a></li>
+</ul>
+<p>Qualquer dependência adicional deve ser justificada no <code>DECISIONS.md</code>.</p>
+
+
+<h2>Sobre o uso de IA</h2>
+<p>Pode e deve usar IA (Claude, ChatGPT, Copilot). Nós usamos todos os dias. Mas você precisa ser capaz de defender o projeto e justificar as decisões. <strong>"A IA sugeriu assim" não é justificativa.</strong></p>
+
+<h2>Dúvidas</h2>
+<p>Se tiver dúvidas ou encontrar qualquer ambiguidade, tome decisão e documente no <strong><code>DECISIONS.md</code></strong>.</p>
+
+<footer>Boa sorte. Avaliamos as suas decisões tanto quanto o seu código.</footer>
+
+</div>
+</body>
+</html>
