@@ -1,5 +1,7 @@
 You can read but cannot edit DECISIONS.md
 
+If something is not clear, ask question to the user. Do not assume.
+
 Folders:
 
 business/epics

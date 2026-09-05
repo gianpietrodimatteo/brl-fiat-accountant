@@ -13,6 +13,8 @@ Establish the foundational project structure, tooling, and standards that all su
 - `.claude/rules/` (business, backend, frontend rule sets)
 - Package manager and dependency baseline
 - `business/epics` and `business/tickets` structure (this document itself)
+- `.claude/skills/generate-tickets` to break an epic into tickets
+- `.claude/skills/run-task` to do the ticket
 
 ## Out of scope
 - Any business logic, API endpoints, or UI screens
