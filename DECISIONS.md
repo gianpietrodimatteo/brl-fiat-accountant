@@ -20,6 +20,7 @@ There will be a code review step for each proposed commit.
 CLAUDE.md
 .claude/settings.json
 .claude/rules
+.claude/skills
 business/epics
 business/tickets
 backend/
@@ -27,3 +28,7 @@ frontend/
 
 Generated 7 different epics with the steps to accomplish the challenge. Now we have a roadmap. First step is the initial
 setup.
+
+Started with the Claude skills because I'll need them as soon as possible. Now I build the project's foundations.
+Using the created bots I'll refine first epic (the configuration epic) and tackle the activities one by one.
+
