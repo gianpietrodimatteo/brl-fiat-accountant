@@ -1,7 +1,7 @@
 # Backend Conventions
 
 Applies to everything under `backend/`. See [[business]] for the domain rules this code
-must implement correctly.
+must implement correctly, and [[testing]] for the testing standards that apply here.
 
 ## Runtime & TypeScript
 
@@ -47,6 +47,15 @@ handler talk to SQLite or an exchange client directly — always go through a se
 
 ## Testing
 
-- No test runner is configured yet. If a ticket introduces logic worth unit testing,
-  check `DECISIONS.md`/`package.json` for an already-chosen framework before adding one —
-  don't pick silently.
+See [[testing]] for cross-cutting rules (every feature needs tests, coverage expectations).
+
+- Runner: **Vitest**. Test files are colocated with source (`src/domain/pricing.ts` +
+  `src/domain/pricing.test.ts`), not a mirrored `__tests__` tree.
+- Exchange clients (Binance/OKX): tests fake them by reusing the Simulated Mode local fake
+  implementations that the business rules already require (see [[business]]), swapped in
+  the same way Simulated Mode swaps them at startup — don't build a second, separate mock
+  layer (e.g. nock/msw) for the same clients.
+- Repository/service tests can run against a real SQLite file (e.g. `:memory:` or a temp
+  file per test run) rather than mocking the DB layer — SQLite is fast enough that this is
+  simpler and more representative than mocking it.
+- `npm test` runs the suite once; it must pass before a backend ticket is done.
