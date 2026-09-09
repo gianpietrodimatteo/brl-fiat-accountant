@@ -34,5 +34,5 @@ Using the created bots I'll refine first epic (the configuration epic) and tackl
 
 I'll use npm as the package manager for backend and frontend — it ships with Node, needs no extra global install, and
 keeps the workflow simple for a project without CI.
-Node version is the latest LTS
-
+Node version is the latest LTS (24)
+Next.js version is the latest LTS (16)
