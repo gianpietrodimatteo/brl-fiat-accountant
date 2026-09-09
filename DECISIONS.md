@@ -40,3 +40,7 @@ Next.js version is the latest LTS (16)
 Added ESLint and Prettier (plus eslint-config-prettier deal with conflicts)
 Now I can lint and format with prettier on both projects. Both resolve to the single root for the style. Classic default
 settings.
+
+Set up docker containerization for backend and frontend, set up root docker compose. Now we can easily fire up the 
+containers. Put a little listen in the backend just to have something running (for now).
+
