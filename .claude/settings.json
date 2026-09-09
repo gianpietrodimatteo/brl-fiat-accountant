@@ -1,0 +1,62 @@
+{
+  "permissions": {
+    "allow": [
+      "Write",
+      "Edit",
+
+      "Bash(npm install)",
+      "Bash(npm ci)",
+      "Bash(npm run *)",
+      "Bash(cd frontend && npm run *)",
+      "Bash(cd backend && npm run *)",
+
+      "Bash(npx tsc *)",
+      "Bash(npx next build*)",
+      "Bash(npx next lint*)",
+      "Bash(npx vitest *)",
+      "Bash(npx jest *)",
+      "Bash(npx eslint *)",
+      "Bash(npx prettier *)",
+      "Bash(node *)",
+
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git checkout *)",
+
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(mkdir *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(sudo *)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "Bash(git push *)",
+      "Bash(npm publish*)",
+      "Bash(docker *)"
+    ],
+    "defaultMode": "default"
+  },
+  "env": {},
+  "includeCoAuthoredBy": true,
+  "cleanupPeriodDays": 30
+}

@@ -32,3 +32,7 @@ setup.
 Started with the Claude skills because I'll need them as soon as possible. Now I build the project's foundations.
 Using the created bots I'll refine first epic (the configuration epic) and tackle the activities one by one.
 
+I'll use npm as the package manager for backend and frontend — it ships with Node, needs no extra global install, and
+keeps the workflow simple for a project without CI.
+Node version is the latest LTS
+
