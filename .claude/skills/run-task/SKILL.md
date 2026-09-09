@@ -6,11 +6,11 @@ argument-hint: <ticket-number-or-file>
 
 ## Ticket to implement
 
-!`cat business/tickets/*${ARGUMENTS}* 2>/dev/null`
+`cat business/tickets/*${ARGUMENTS}* 2>/dev/null`
 
 ## Prior decisions
 
-!`cat DECISIONS.md 2>/dev/null`
+`cat DECISIONS.md 2>/dev/null`
 
 Implement the ticket above:
 

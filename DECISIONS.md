@@ -36,3 +36,7 @@ I'll use npm as the package manager for backend and frontend — it ships with N
 keeps the workflow simple for a project without CI.
 Node version is the latest LTS (24)
 Next.js version is the latest LTS (16)
+
+Added ESLint and Prettier (plus eslint-config-prettier deal with conflicts)
+Now I can lint and format with prettier on both projects. Both resolve to the single root for the style. Classic default
+settings.

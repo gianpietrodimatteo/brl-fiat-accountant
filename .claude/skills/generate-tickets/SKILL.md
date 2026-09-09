@@ -6,7 +6,7 @@ argument-hint: <epic-number-or-file>
 
 ## Epic to break down
 
-!`cat business/epics/*${ARGUMENTS}* 2>/dev/null`
+`cat business/epics/*${ARGUMENTS}* 2>/dev/null`
 
 Break the epic above into a small number of tickets (aim for 3-6; do not over-fragment).
 
