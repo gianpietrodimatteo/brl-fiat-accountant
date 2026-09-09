@@ -57,6 +57,5 @@
     "defaultMode": "default"
   },
   "env": {},
-  "includeCoAuthoredBy": true,
   "cleanupPeriodDays": 30
 }

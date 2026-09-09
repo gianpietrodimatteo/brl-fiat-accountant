@@ -9,3 +9,9 @@ business/tickets
 
 backend/
 frontend/
+
+Rules:
+
+.claude/rules/business.md — domain/business constraints
+.claude/rules/backend.md — backend conventions
+.claude/rules/frontend.md — frontend conventions

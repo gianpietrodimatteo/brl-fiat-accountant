@@ -44,3 +44,5 @@ settings.
 Set up docker containerization for backend and frontend, set up root docker compose. Now we can easily fire up the 
 containers. Put a little listen in the backend just to have something running (for now).
 
+Now that we have something tangible we can scaffold the Claude code settings file. That is a first version, it may be
+edited and improved as we work throughout this project.
