@@ -86,6 +86,9 @@ the values as string, for we may have overflow problems in saving the numbers. H
 cool with saving the numbers on the database, and benefiting from doing mathematical operations directly on the database
 whenever needed.
 
+I know some currencies use different decimal places. However, EUR, ARS, COP, MXN, ZAR are all ISO 4217 currencies with 2
+decimal places (COP is sometimes quoted without decimals in everyday use, but officially it's 2)
+
 We will certainly NOT use floats, but instead integers counting from the cents up and storing spread as basis points:
 
 - `quotes.quantity`, `quotes.unit_price`, `quotes.total_price` are stored as `INTEGER`
@@ -107,3 +110,6 @@ query engine binary adds Docker binary-targeting complexity we don't need. bette
 the atomic quote-confirmation update in ticket 2-2) and a lightweight runner gives us the same idempotent-migration
 guarantee with far less code to maintain.
 
+The first schema has User and SupportedCurrency. We also have Quote, which is an expirable record for a user's attempt
+at buying new currency. It saves how much the user wants to spend and what would that yield, at that moment, for that
+duration.
