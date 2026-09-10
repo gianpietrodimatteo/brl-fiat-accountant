@@ -1,7 +1,12 @@
+---
+paths:
+- "backend/**"
+---
+
 # Backend Conventions
 
 Applies to everything under `backend/`. See [[business]] for the domain rules this code
-must implement correctly, and [[testing]] for the testing standards that apply here.
+must implement correctly.
 
 ## Runtime & TypeScript
 
@@ -47,7 +52,11 @@ handler talk to SQLite or an exchange client directly — always go through a se
 
 ## Testing
 
-See [[testing]] for cross-cutting rules (every feature needs tests, coverage expectations).
+Whenever a ticket adds or changes behavior (a business rule, an endpoint), the same change
+must include tests for it — this applies going forward from this rule's introduction, not
+retroactively to already-merged scaffolding-only tickets. No enforced numeric coverage
+threshold; judge adequacy by whether the ticket's acceptance criteria and edge cases are
+actually exercised, not by a percentage.
 
 - Runner: **Vitest**. Test files are colocated with source (`src/domain/pricing.ts` +
   `src/domain/pricing.test.ts`), not a mirrored `__tests__` tree.
@@ -58,4 +67,5 @@ See [[testing]] for cross-cutting rules (every feature needs tests, coverage exp
 - Repository/service tests can run against a real SQLite file (e.g. `:memory:` or a temp
   file per test run) rather than mocking the DB layer — SQLite is fast enough that this is
   simpler and more representative than mocking it.
-- `npm test` runs the suite once; it must pass before a backend ticket is done.
+- `npm test` (single run) runs the suite once from `backend/`; it must pass before a
+  backend ticket is done. Add a `test:watch` script if useful during development.

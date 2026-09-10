@@ -28,7 +28,7 @@ Every later ticket in this epic (domain models, repositories, seed script, sessi
 - [ ] `quotes.user_id` has a foreign key constraint to `users.id`
 - [ ] `supported_currencies` can only hold the five spec'd currency codes (enforced via CHECK constraint, enum-like column, or equivalent — not left to application code alone)
 - [ ] No monetary column uses a floating-point-backed SQLite type in a way that loses precision (verified by a test that writes and reads back a value with cents that would be lossy under float rounding)
-- [ ] Tests (Vitest, colocated per [[testing]]) cover: migration runs cleanly, migration is idempotent, and the currency CHECK/constraint rejects an unsupported code
+- [ ] Tests (Vitest, colocated per [[backend]]) cover: migration runs cleanly, migration is idempotent, and the currency CHECK/constraint rejects an unsupported code
 
 ## Dependencies
 Ticket 1-1 (Backend Scaffolding & TypeScript Config)

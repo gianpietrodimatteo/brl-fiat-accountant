@@ -1,3 +1,10 @@
+---
+paths:
+- "business/**"
+- "backend/**"
+- "frontend/**"
+---
+
 # Business Rules
 
 Domain constraints from the challenge spec (`Desafio.html`). These are not up for

@@ -1,8 +1,12 @@
+---
+paths:
+- "frontend/**"
+---
+
 # Frontend Conventions
 
 Applies to everything under `frontend/`. See [[business]] for the domain rules the UI must
-reflect (it must not reimplement them), and [[testing]] for the testing standards that
-apply here.
+reflect (it must not reimplement them).
 
 ## Structure
 
@@ -36,7 +40,11 @@ Match the ticket's spec exactly, don't add or drop fields:
 
 ## Testing
 
-See [[testing]] for cross-cutting rules (every feature needs tests, coverage expectations).
+Whenever a ticket adds or changes behavior (a UI screen's logic), the same change must
+include tests for it — this applies going forward from this rule's introduction, not
+retroactively to already-merged scaffolding-only tickets. No enforced numeric coverage
+threshold; judge adequacy by whether the ticket's acceptance criteria and edge cases are
+actually exercised, not by a percentage.
 
 - Runner/library: **Vitest + React Testing Library** for unit/component tests. Test files
   are colocated with source (`src/app/quotation/page.tsx` +
@@ -45,9 +53,10 @@ See [[testing]] for cross-cutting rules (every feature needs tests, coverage exp
   not implementation details — mock the API client layer (see above), not `fetch` calls
   scattered inline.
 - Full user flows across screens (login → quote → confirm → history) are covered by the
-  top-level Playwright `e2e/` suite, not by component tests — don't duplicate that
-  coverage here.
-- `npm test` runs the suite once; it must pass before a frontend ticket is done.
+  top-level Playwright `e2e/` suite (see `.claude/rules/e2e.md`), not by component tests —
+  don't duplicate that coverage here.
+- `npm test` (single run) runs the suite once from `frontend/`; it must pass before a
+  frontend ticket is done. Add a `test:watch` script if useful during development.
 
 ## Lint/format
 

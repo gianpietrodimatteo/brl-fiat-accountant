@@ -23,7 +23,7 @@ Epic 2: Backend Core & Persistence
 - [ ] Running `npm run seed` against a freshly migrated database creates exactly `alice`, `bob`, `carol` with spreads `0%`, `0.6%`, `1%` respectively
 - [ ] Running `npm run seed` against a freshly migrated database creates exactly the five supported currencies (`EUR`, `ARS`, `COP`, `MXN`, `ZAR`)
 - [ ] Running `npm run seed` twice in a row does not error and does not produce duplicate users or currencies
-- [ ] A test (Vitest, real SQLite per [[testing]]/[[backend]]) verifies the seeded users and currencies after running the seed logic
+- [ ] A test (Vitest, real SQLite per [[backend]]) verifies the seeded users and currencies after running the seed logic
 - [ ] `npm run lint` and `npm run format:check` pass in `backend/`
 - [ ] `npm test` passes in `backend/`
 
