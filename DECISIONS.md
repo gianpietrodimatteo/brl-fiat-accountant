@@ -113,3 +113,5 @@ guarantee with far less code to maintain.
 The first schema has User and SupportedCurrency. We also have Quote, which is an expirable record for a user's attempt
 at buying new currency. It saves how much the user wants to spend and what would that yield, at that moment, for that
 duration.
+
+Created sessions table with the users sessions. It is a simple UUID for the token and the users don't have password.
