@@ -13,7 +13,10 @@ must implement correctly.
 - Node 24 (see `backend/.nvmrc`), TypeScript with `strict: true`, CommonJS output
   (`backend/tsconfig.json`). Don't relax compiler strictness to make something compile —
   fix the types instead.
-- Dev loop is `tsx watch src/index.ts` (`npm run dev`); production build is `tsc` → `dist/`.
+- Dev loop is `tsx watch src/index.ts` (`npm run dev`); production build is
+  `tsc -p tsconfig.build.json` → `dist/`. `tsconfig.json` (the editor/type-checking config)
+  includes `*.test.ts`; `tsconfig.build.json` extends it and excludes test files from the
+  compiled build. Keep this split.
 
 ## Folder structure
 

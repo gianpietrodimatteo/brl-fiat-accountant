@@ -115,3 +115,6 @@ at buying new currency. It saves how much the user wants to spend and what would
 duration.
 
 Created sessions table with the users sessions. It is a simple UUID for the token and the users don't have password.
+
+## Epic 3 Market Data and Exchange Integration
+
