@@ -35,4 +35,11 @@ export class UserRepository {
     const rows = this.db.prepare("SELECT * FROM users").all() as UserRow[];
     return rows.map(toDomain);
   }
+
+  /** Inserts a user, doing nothing if the username already exists. */
+  insertIfNotExists(username: string, spreadBasisPoints: number): void {
+    this.db
+      .prepare("INSERT OR IGNORE INTO users (username, spread) VALUES (?, ?)")
+      .run(username, spreadBasisPoints);
+  }
 }

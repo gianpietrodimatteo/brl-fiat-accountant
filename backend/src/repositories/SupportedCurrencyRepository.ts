@@ -24,4 +24,11 @@ export class SupportedCurrencyRepository {
     const row = this.db.prepare("SELECT 1 FROM supported_currencies WHERE code = ?").get(code);
     return row !== undefined;
   }
+
+  /** Inserts a supported currency, doing nothing if the code already exists. */
+  insertIfNotExists(code: string, name: string | null = null): void {
+    this.db
+      .prepare("INSERT OR IGNORE INTO supported_currencies (code, name) VALUES (?, ?)")
+      .run(code, name);
+  }
 }

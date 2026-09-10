@@ -29,3 +29,11 @@ Epic 2: Backend Core & Persistence
 
 ## Dependencies
 Ticket 2-2 (Domain Models & Repository Layer)
+
+## Implementation note
+`UserRepository` and `SupportedCurrencyRepository` (from ticket 2-2) only had read methods
+(`findById`/`findByUsername`/`listAll`, `listAll`/`isSupported`) — no way to insert a row
+without raw SQL. Added a minimal `insertIfNotExists` method to each, scoped to exactly what
+the seed script needs (relies on the existing `UNIQUE`/`PRIMARY KEY` constraints via
+`INSERT OR IGNORE` for idempotency). Flagged here rather than treated as a silent expansion
+of 2-2's scope.
