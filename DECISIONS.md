@@ -77,3 +77,33 @@ following the best practices, using the best tools available, in the least amoun
 surprises.
 
 ## Epic 2 - Backend Core and Persistence
+
+We have 2 main options when it comes to setting up the database and doing monetary operations with
+JavaScript/TypeScript. One is saving everything as string and processing with decimal.js (well established library for
+numeric operations). The other is saving as integers, that, on SQLite are saved as 64-bit unsigned integers, and, again,
+use decimal.js on the application layer. If this project were about doing crypto operations it would make sense to store
+the values as string, for we may have overflow problems in saving the numbers. However, for this specific project, we're
+cool with saving the numbers on the database, and benefiting from doing mathematical operations directly on the database
+whenever needed.
+
+We will certainly NOT use floats, but instead integers counting from the cents up and storing spread as basis points:
+
+- `quotes.quantity`, `quotes.unit_price`, `quotes.total_price` are stored as `INTEGER`
+  centavos (BRL's minor unit) — e.g. R$31.44 is stored as `3144`.
+- `users.spread` is stored as `INTEGER` basis points — e.g. 0.6% is stored as `60`, 1% as
+  `100`, 0% as `0`.
+
+All arithmetic (the pricing formula, rounding) happens in application code using a decimal library so intermediate
+division/multiplication never touches floating-point `number`, and only the final rounded-up-to-2-decimals result is
+converted to its integer minor-unit form at the point it's persisted. This keeps SQLite's native INTEGER SUM/compare
+exact for anything aggregate we build later (e.g. history totals), which was the deciding factor over storing decimal
+strings in TEXT columns.
+
+I considered Prisma but chose better-sqlite3 with a small hand-rolled migration runner instead. The database is a single
+SQLite file with three simple tables — Prisma's main value-adds (relation loading, multi-provider portability, generated
+query builder) don't get exercised at this scale. It also would have added real friction: the supported_currencies CHECK
+constraint isn't expressible in Prisma's schema DSL, requiring a hand-edited raw-SQL migration anyway, and Prisma's
+query engine binary adds Docker binary-targeting complexity we don't need. better-sqlite3 is synchronous (simpler for
+the atomic quote-confirmation update in ticket 2-2) and a lightweight runner gives us the same idempotent-migration
+guarantee with far less code to maintain.
+
