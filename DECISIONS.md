@@ -118,3 +118,36 @@ Created sessions table with the users sessions. It is a simple UUID for the toke
 
 ## Epic 3 Market Data and Exchange Integration
 
+The challenge requires that quotations are valid for 10 seconds after their creation.
+Challenge also states that Binance is to be queried always by REST and OKX via WebSocket.
+OKX may be requested by REST if the WebSocket is unavailable in 1 second intervals.
+USDT / BRL conversion checks the cheapest one from Binance or OKX.
+The USDT/<other curency> part must always come from Binance.
+
+I understand the requirement for OKX WebSocket, since it notifies me. I understand that Binance also offers websocket,
+but, for the purpose of this challenge, we're not using it.
+
+I understand Binance is the determining factor here, if there is no Binance, there is no deal.
+
+However, one point to consider is, what if we have 200 users asking for a quote? Then would we actually send 200
+requests? It could be 1 user frenetically clicking away, then again, would we really make a REST request every time to
+Binance? I haven't even read the specs on how many requests I'm allowed to make, but I know it is not infinite.
+
+So it makes sense to have a cache also for Binance, even if it is not exactly equal to the cache we're implementing for
+OKX. when a value for a given key (the resolved exchange-info symbol map, or a symbol's book ticker) is requested, an
+already in-flight request for that key is shared instead of firing a second one, and once a request resolves — success
+or typed failure alike — its result stays cached for a short TTL (1 second for book-ticker bid/ask, comfortably inside a
+quote's 10-second validity window; 10 minutes for exchange-info symbol resolution, since trading pairs don't change
+between requests).
+
+One refinement on the above: only a successful symbol resolution is cached for 10 minutes. A failed one is cached for 1
+second, same as prices. Concurrent callers during an outage still share a single request, so the rate limit holds, but
+one transient 503 can't leave us unable to quote for 10 minutes after Binance is already back.
+
+An alternative to this would be some sort of fixed-interval background job, however this would be firing requests when
+no one is asking for a quote.
+
+There was a change of plans here though. I was going to reuse the Simulated Mode fakes to test the exchange-client
+tests. However, doing this I wouldn't be able to properly test BinanceClients (malformed JSON, non-OK status, timeouts,
+request coalescing). So they are going to have their own comprehensive tests.
+

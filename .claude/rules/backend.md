@@ -63,10 +63,21 @@ actually exercised, not by a percentage.
 
 - Runner: **Vitest**. Test files are colocated with source (`src/domain/pricing.ts` +
   `src/domain/pricing.test.ts`), not a mirrored `__tests__` tree.
-- Exchange clients (Binance/OKX): tests fake them by reusing the Simulated Mode local fake
-  implementations that the business rules already require (see [[business]]), swapped in
-  the same way Simulated Mode swaps them at startup — don't build a second, separate mock
-  layer (e.g. nock/msw) for the same clients.
+- Exchange clients (Binance/OKX) have two distinct test layers, and one does not substitute
+  for the other:
+  - **Code that consumes the `ExchangeClient` interface** (pricing, quote lifecycle, HTTP
+    routes) fakes the exchange by reusing the Simulated Mode local fake implementations
+    that the business rules already require (see [[business]]), swapped in the same way
+    Simulated Mode swaps them at startup — don't build a second, separate mock layer
+    (e.g. nock/msw) for that.
+    - **The real clients themselves** (`BinanceClient`, the OKX client) can't be tested that
+      way. The Simulated Mode fakes exist precisely to bypass the network, so they cannot
+      exercise the transport boundary these clients are built to own: pair resolution from
+      exchange-info, malformed payloads, non-OK statuses, timeouts, and the request-coalescing
+      rate-limit strategy. Test those by injecting a fake transport (a `fetch`-shaped
+      function, or a fake WebSocket)   through the client's constructor, hand-rolled in the
+      colocated test file. Still no nock/msw — the seam is the injected dependency, not
+      intercepted network traffic                 .
 - Repository/service tests can run against a real SQLite file (e.g. `:memory:` or a temp
   file per test run) rather than mocking the DB layer — SQLite is fast enough that this is
   simpler and more representative than mocking it.

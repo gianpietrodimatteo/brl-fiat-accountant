@@ -4,7 +4,9 @@
 Epic 3: Market Data & Exchange Integration
 
 ## Context
-[[business]] requires a startup toggle that replaces both exchange clients with local fakes, with zero network access, so the whole system (including Epic 4/5/6 later) can run end-to-end without hitting Binance or OKX. This also gives every other ticket's tests a reusable fake instead of a second mocking layer, per [[backend]]'s testing convention.
+[[business]] requires a startup toggle that replaces both exchange clients with local fakes, with zero network access, so the whole system (including Epic 4/5/6 later) can run end-to-end without hitting Binance or OKX. This also gives *consumers* of the exchange-client interface (pricing, quote lifecycle, HTTP routes) a reusable fake instead of a second mocking layer, per [[backend]]'s testing convention.
+
+Note what these fakes are **not** for: the real clients' own tests. [[3-1]] hit this — `BinanceClient` (and `OkxClient` in [[3-2]]) own a transport boundary the fakes exist precisely to bypass, so pair resolution, malformed payloads, timeouts and the coalescing behaviour can only be tested by injecting a fake transport into the real client. [[backend]]'s testing rule has been amended to spell out both layers; don't read this ticket as making the real clients' transport tests redundant.
 
 ## Scope
 - A `FakeBinanceClient` and `FakeOkxClient` under `backend/src/exchanges/`, each implementing the interface from [[3-1]]/[[3-2]] with in-memory, hardcoded-but-plausible prices for USDT/BRL and USDT/`<destino>` — no network access of any kind.

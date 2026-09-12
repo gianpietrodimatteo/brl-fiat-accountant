@@ -23,14 +23,24 @@ Every later ticket in this epic (OKX feed, price composition, simulated fakes) n
 - HTTP endpoints (Epic 5)
 
 ## Acceptance Criteria
-- [ ] `DECISIONS.md` records the chosen Binance rate-limit strategy and the alternatives considered
-- [ ] `BinanceClient` resolves USDT/BRL and USDT/`<destination>` pairs via a Binance API call, not a hardcoded pair map
-- [ ] `BinanceClient` returns top-of-book bid/ask for a resolved pair
-- [ ] A simulated network failure, timeout, or malformed response from Binance results in a typed "unavailable" outcome, not a thrown exception reaching the caller
-- [ ] A test simulating hundreds of concurrent calls to the client demonstrates the underlying request rate to Binance stays bounded (e.g. capped at one in-flight/cached request per interval), not one request per caller
-- [ ] Tests (Vitest, colocated per [[backend]]) cover: pair resolution, successful bid/ask fetch, unavailable-on-failure behavior, and the rate-limit strategy's bounded-request-rate behavior
-- [ ] `npm run lint` and `npm run format:check` pass in `backend/`
-- [ ] `npm test` passes in `backend/`
+- [x] `DECISIONS.md` records the chosen Binance rate-limit strategy and the alternatives considered
+- [x] `BinanceClient` resolves USDT/BRL and USDT/`<destination>` pairs via a Binance API call, not a hardcoded pair map
+- [x] `BinanceClient` returns top-of-book bid/ask for a resolved pair
+- [x] A simulated network failure, timeout, or malformed response from Binance results in a typed "unavailable" outcome, not a thrown exception reaching the caller
+- [x] A test simulating hundreds of concurrent calls to the client demonstrates the underlying request rate to Binance stays bounded (e.g. capped at one in-flight/cached request per interval), not one request per caller
+- [x] Tests (Vitest, colocated per [[backend]]) cover: pair resolution, successful bid/ask fetch, unavailable-on-failure behavior, and the rate-limit strategy's bounded-request-rate behavior
+- [x] `npm run lint` and `npm run format:check` pass in `backend/`
+- [x] `npm test` passes in `backend/`
+
+## Delivered
+- `backend/src/exchanges/ExchangeClient.ts` — the shared interface: `getTopOfBook(baseAsset, quoteAsset)` returning a typed `{ status: 'available', bid, ask } | { status: 'unavailable', reason }`, with prices as `decimal.js` values (never floats). [[3-2]] and [[3-4]] implement this same interface.
+- `backend/src/exchanges/CoalescingCache.ts` — the one canonical rate-limit strategy: concurrent callers for a key share one in-flight request, and the resolved outcome is cached for a TTL that may vary per value. Don't add a second strategy elsewhere.
+- `backend/src/exchanges/BinanceClient.ts` — symbol resolution from `exchangeInfo` (cached 10 min on success, 1s on failure so a transient outage doesn't block quoting), bid/ask from `ticker/bookTicker` (cached 1s).
+- Added `decimal.js` to `backend/`.
+
+Two deviations, both agreed with the user during implementation:
+- A failed pair resolution is cached for 1s rather than the 10 min the `DECISIONS.md` text implies for exchange-info, so one transient failure can't suppress quotes for 10 minutes after Binance recovers. Recorded as an addendum in `DECISIONS.md`.
+- [[backend]]'s testing rule was amended (additively) rather than followed as written — see the note added to [[3-4]].
 
 ## Dependencies
 Epic 1 (Project Setup & Tooling), Epic 2 (Backend Core & Persistence)
