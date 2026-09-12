@@ -7,6 +7,7 @@ services:
     environment:
       PORT: ${BACKEND_PORT:-3001}
       SQLITE_DB_PATH: ${SQLITE_DB_PATH:-/data/app.db}
+      EXCHANGE_MODE: ${EXCHANGE_MODE:-live}
     volumes:
       - sqlite-data:/data
     restart: unless-stopped

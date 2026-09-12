@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { activeExchangeMode } from "./exchanges/exchangeClients";
 
 const port = Number(process.env.PORT) || 3001;
 
@@ -9,7 +10,9 @@ function main(): void {
   });
 
   server.listen(port, () => {
-    console.log(`backend placeholder listening on port ${port}`);
+    console.log(
+      `backend placeholder listening on port ${port} (exchange mode: ${activeExchangeMode})`,
+    );
   });
 }
 

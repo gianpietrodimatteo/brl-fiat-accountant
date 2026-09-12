@@ -168,3 +168,9 @@ other.
 Obs: Worst-case detection of a silently dead connection is up to 10 seconds, not 8, because the health check runs on a
 one-second tick
 
+There is now a variable called EXCHANGE_MODE that may be live or simulated to toggle between the fake servers. 
+
+FakeExchangeClient.ts holds the shared in-memory lookup: no fetch, no WebSocket, no timers anywhere in the hierarchy.
+FakeBinanceClient.ts serves USDT against BRL and all five destination currencies, with the real client's wording for an unknown pair.
+FakeOkxClient.ts serves only USDT/BRL, at an ask slightly below the Binance fake, so simulated mode exercises the branch where OKX wins the BRL leg.
+exchangeClients.ts resolves the toggle once at process start and is the only place that knows both implementations exist.

@@ -30,6 +30,34 @@ npm install
 | `npm test`             | Runs the Vitest suite once                                 |
 | `npm run test:watch`   | Runs Vitest in watch mode                                  |
 
+## Simulated Mode
+
+Simulated Mode swaps both exchange clients for local fakes that answer from hardcoded,
+plausible in-memory prices and make no network calls at all — no Binance REST request and no
+OKX WebSocket connection. It is selected by the `EXCHANGE_MODE` env var, read once at process
+start:
+
+| `EXCHANGE_MODE` | Clients used                            |
+| --------------- | --------------------------------------- |
+| unset (default) | Real `BinanceClient` and `OkxClient`    |
+| `live`          | Real `BinanceClient` and `OkxClient`    |
+| `simulated`     | `FakeBinanceClient` and `FakeOkxClient` |
+
+Run the backend in Simulated Mode locally:
+
+```bash
+EXCHANGE_MODE=simulated npm run dev
+```
+
+Or with Docker Compose, from the repo root:
+
+```bash
+EXCHANGE_MODE=simulated docker compose up
+```
+
+Any other value (a typo such as `simulate`) fails at startup rather than silently falling back
+to the real exchanges. The active mode is logged on startup.
+
 ## Database
 
 SQLite, accessed only through the repository layer (`src/repositories/`) — see
