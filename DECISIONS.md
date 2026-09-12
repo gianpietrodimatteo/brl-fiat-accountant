@@ -192,3 +192,10 @@ rounded figure, not an exact one. I round it up at the storage scale, so no roun
 understates the cost. What matters more is that unit_price is a record of the rate and nothing else: total_price is
 always computed from the full-precision decimal chain, never by multiplying the stored unit_price back out.
 
+Main domain changes:
+```
+quotes.quantity = destination currency minor units
+quotes.unit_price is BRL sub-units at 10^8
+quotes.total_price = centavos, unchanged
+users.spread = integer, left unaltered
+```
