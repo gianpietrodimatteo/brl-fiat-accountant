@@ -151,3 +151,20 @@ There was a change of plans here though. I was going to reuse the Simulated Mode
 tests. However, doing this I wouldn't be able to properly test BinanceClients (malformed JSON, non-OK status, timeouts,
 request coalescing). So they are going to have their own comprehensive tests.
 
+I haven't anticipated one thing though: how long should I wait before thinking that a Websocket may be stale? I
+considered a fixed interval less than 10s, like 5s for instance. However, this may throw away a perfectly good
+connection, because from what I understand from OKX they do not send a message if there is no change.
+
+So I got into the concept of 2 checks:  Liveliness checks and Freshness checks:
+
+OKX connection health needs two timers, not one. The tickers channel is change-driven, so silence on a thin pair like
+USDT/BRL is normal and cannot be used as a failure signal: a data-silence alarm degenerates into a reconnect loop and
+leaves us on REST permanently, defeating the WebSocket requirement. Liveness is therefore proven with OKX's own
+keepalive (a literal "ping" after 5s of silence on any frame, reconnect if no frame follows within 3s, worst case 8s,
+inside OKX's 30s idle close), and freshness is a separate per-read guard on the price age measured from the exchange
+timestamp. REST polling at 1s is driven by price age, reconnects are driven by liveness, and the two never trigger each
+other.
+
+Obs: Worst-case detection of a silently dead connection is up to 10 seconds, not 8, because the health check runs on a
+one-second tick
+

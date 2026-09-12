@@ -74,6 +74,12 @@ rather than picking a side.
   in memory.
 - If the socket drops or goes stale, fall back to REST polling every 1 second until the
   socket recovers, then switch back automatically.
+  - "Stale" means the last known price is too old to quote from — not that the socket has
+    gone quiet. The OKX tickers channel only pushes on change, so silence on a thin pair
+    like USDT/BRL is normal and must not be treated as a failed connection. Whether the
+    connection itself is alive is answered by OKX's own `ping`/`pong` keepalive, which is
+    what may trigger a reconnect. This clarifies the spec rule above; it does not replace
+    it.
 - A quote request never waits on OKX — it reads whatever is currently in memory, or treats
   OKX as unavailable if nothing usable is there.
 
