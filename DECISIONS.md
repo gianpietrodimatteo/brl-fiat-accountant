@@ -193,9 +193,13 @@ understates the cost. What matters more is that unit_price is a record of the ra
 always computed from the full-precision decimal chain, never by multiplying the stored unit_price back out.
 
 Main domain changes:
+
 ```
 quotes.quantity = destination currency minor units
 quotes.unit_price is BRL sub-units at 10^8
 quotes.total_price = centavos, unchanged
 users.spread = integer, left unaltered
 ```
+
+Added the pricing module: ask over bid, spread on top of that composed rate, rate times quantity, ceiling applied once
+at the end on the total.
