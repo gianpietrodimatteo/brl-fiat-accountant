@@ -1,29 +1,9 @@
-import type Decimal from "decimal.js";
+import type { ComposedPriceResult } from "../domain/ComposedPrice";
 import type { ExchangeClient, TopOfBookResult } from "../exchanges/ExchangeClient";
 
 /** Bridge asset every quote routes through, per [[business]]. */
 const BRIDGE_ASSET = "USDT";
 const LOCAL_CURRENCY = "BRL";
-
-export type BrlLegSource = "binance" | "okx";
-
-export interface ComposedPrice {
-  destinationCurrency: string;
-  /**
-   * BRL paid per USDT — the USDT/BRL ask, since the client buys USDT, taken from whichever
-   * exchange is cheaper for the client.
-   */
-  usdtBrlAsk: Decimal;
-  usdtBrlSource: BrlLegSource;
-  /**
-   * Destination units received per USDT — the USDT/`<destino>` bid, since the client sells
-   * the USDT. Always Binance.
-   */
-  usdtDestinationBid: Decimal;
-}
-
-export type ComposedPriceResult =
-  ({ status: "available" } & ComposedPrice) | { status: "no_quote_capability"; reason: string };
 
 /**
  * Composes the two legs a quote is built from, so pricing never has to know that Binance and

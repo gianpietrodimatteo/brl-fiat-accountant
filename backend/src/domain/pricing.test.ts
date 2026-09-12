@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
-import type { ComposedPrice } from "../services/MarketDataService";
+import type { ComposedPrice } from "./ComposedPrice";
 import { ceilToCentavos, spreadMultiplierFromBasisPoints } from "./money";
 import { priceQuote } from "./pricing";
 

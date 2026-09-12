@@ -1,5 +1,5 @@
 import type Decimal from "decimal.js";
-import type { ComposedPrice } from "../services/MarketDataService";
+import type { ComposedPrice } from "./ComposedPrice";
 import {
   ceilToCentavos,
   ceilToUnitPriceSubUnits,
