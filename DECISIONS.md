@@ -168,9 +168,27 @@ other.
 Obs: Worst-case detection of a silently dead connection is up to 10 seconds, not 8, because the health check runs on a
 one-second tick
 
-There is now a variable called EXCHANGE_MODE that may be live or simulated to toggle between the fake servers. 
+There is now a variable called EXCHANGE_MODE that may be live or simulated to toggle between the fake servers.
 
 FakeExchangeClient.ts holds the shared in-memory lookup: no fetch, no WebSocket, no timers anywhere in the hierarchy.
-FakeBinanceClient.ts serves USDT against BRL and all five destination currencies, with the real client's wording for an unknown pair.
-FakeOkxClient.ts serves only USDT/BRL, at an ask slightly below the Binance fake, so simulated mode exercises the branch where OKX wins the BRL leg.
-exchangeClients.ts resolves the toggle once at process start and is the only place that knows both implementations exist.
+FakeBinanceClient.ts serves USDT against BRL and all five destination currencies, with the real client's wording for an
+unknown pair.
+FakeOkxClient.ts serves only USDT/BRL, at an ask slightly below the Binance fake, so simulated mode exercises the branch
+where OKX wins the BRL leg.
+exchangeClients.ts resolves the toggle once at process start and is the only place that knows both implementations
+exist.
+
+## Epic 4 Quotation Business Logic
+
+From the example in the challenge, If you divide R$31.44 by 100 MXN this gives the 0.3144 MXN, not an integer. I also
+can't just round it up to 0.32, the results wouldn't add up in the end (31.44 != 32). So I had to change unit price
+
+So quotes.unit_price is BRL scaled by 10^8 sub-units — 0.00314375 BRL per destination minor unit is stored as 314375.
+No DDL change was needed, the column was already INTEGER and SQLite's 64-bit range is orders of magnitude wider than
+anything this can hold.
+
+One caveat on unit_price. The division can be non-terminating (ask 5.00 over bid 3.00), so 8 decimal places is still a
+rounded figure, not an exact one. I round it up at the storage scale, so no rounding step anywhere in the system ever
+understates the cost. What matters more is that unit_price is a record of the rate and nothing else: total_price is
+always computed from the full-precision decimal chain, never by multiplying the stored unit_price back out.
+
