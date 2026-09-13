@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { runMigrations } from "../db/migrationRunner";
 import { migrations } from "../db/migrations";
-import { QUOTE_TTL_MS } from "../domain/quoteLifecycle";
+import { QUOTE_TTL_MS, isExpired } from "../domain/quoteLifecycle";
+import type { Quote } from "../domain/Quote";
 import { FakeBinanceClient } from "../exchanges/FakeBinanceClient";
 import { fakePrices, fakeUnavailable, type FakePriceTable } from "../exchanges/FakeExchangeClient";
 import { FakeOkxClient } from "../exchanges/FakeOkxClient";
@@ -355,6 +356,230 @@ describe("QuoteService", () => {
       await expect(
         service.createQuote({ userId: 9999, destinationCurrency: "", quantity: -1 }),
       ).resolves.toEqual({ status: "invalid_quantity" });
+    });
+  });
+
+  /** Creates bob's (or the named user's) reference 100 MXN quote at the current clock. */
+  async function referenceQuote(service: QuoteService, username = "bob"): Promise<Quote> {
+    return created(
+      await service.createQuote({
+        userId: userId(username),
+        destinationCurrency: "MXN",
+        quantity: ONE_HUNDRED_MXN,
+      }),
+    );
+  }
+
+  function advanceClock(milliseconds: number): void {
+    now = new Date(now.getTime() + milliseconds);
+  }
+
+  function storedConfirmedAt(quoteId: number): string | null {
+    const row = db.prepare("SELECT confirmed_at FROM quotes WHERE id = ?").get(quoteId) as {
+      confirmed_at: string | null;
+    };
+    return row.confirmed_at;
+  }
+
+  function confirmedRowCount(): number {
+    const row = db
+      .prepare("SELECT COUNT(*) AS count FROM quotes WHERE confirmed_at IS NOT NULL")
+      .get() as { count: number };
+    return row.count;
+  }
+
+  describe("confirmQuote", () => {
+    it("confirms the owner's quote inside its window, stamping the injected clock's instant", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      advanceClock(3_000);
+
+      const result = service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      expect(result).toEqual({ status: "confirmed", quote: { ...quote, confirmedAt: now } });
+      expect(storedConfirmedAt(quote.id)).toBe("2026-09-12T10:00:03.000Z");
+    });
+
+    it("yields one confirmed and one already-confirmed result for two concurrent calls", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      const request = { userId: userId("bob"), quoteId: quote.id };
+
+      const results = await Promise.all([
+        Promise.resolve().then(() => service.confirmQuote(request)),
+        Promise.resolve().then(() => service.confirmQuote(request)),
+      ]);
+
+      expect(results.map((result) => result.status).sort()).toEqual([
+        "already_confirmed",
+        "confirmed",
+      ]);
+      expect(confirmedRowCount()).toBe(1);
+    });
+
+    it("yields exactly one confirmed result for a burst of ten concurrent calls", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      const request = { userId: userId("bob"), quoteId: quote.id };
+
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () =>
+          Promise.resolve().then(() => service.confirmQuote(request)),
+        ),
+      );
+
+      const statuses = results.map((result) => result.status);
+      expect(statuses.filter((status) => status === "confirmed")).toHaveLength(1);
+      expect(statuses.filter((status) => status === "already_confirmed")).toHaveLength(9);
+      expect(confirmedRowCount()).toBe(1);
+    });
+
+    it("confirms at exactly expires_at, the window's last valid instant", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      advanceClock(QUOTE_TTL_MS);
+
+      expect(service.confirmQuote({ userId: userId("bob"), quoteId: quote.id }).status).toBe(
+        "confirmed",
+      );
+    });
+
+    it("rejects a quote past expires_at, recording it nowhere", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      advanceClock(QUOTE_TTL_MS + 1);
+
+      const result = service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      expect(result).toEqual({ status: "expired" });
+      expect(storedConfirmedAt(quote.id)).toBeNull();
+      expect(quoteRowCount()).toBe(1);
+      expect(service.listHistory(userId("bob"))).toEqual([]);
+    });
+
+    it("rejects a quote that expires between fetching it and confirming it", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+
+      const fetched = quoteRepository.findById(quote.id);
+      if (!fetched) throw new Error("expected the quote to be stored");
+      expect(isExpired(fetched, now)).toBe(false);
+
+      advanceClock(QUOTE_TTL_MS + 1);
+      const result = service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      expect(result).toEqual({ status: "expired" });
+      expect(storedConfirmedAt(quote.id)).toBeNull();
+    });
+
+    it("rejects another user's quote without confirming it or revealing its contents", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service, "alice");
+
+      const result = service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      expect(result).toEqual({ status: "not_owner" });
+      expect(storedConfirmedAt(quote.id)).toBeNull();
+      expect(service.listHistory(userId("bob"))).toEqual([]);
+    });
+
+    it("reports a non-existent or malformed quote id as not found", () => {
+      const service = buildService();
+
+      for (const quoteId of [9999, 0, -1, 1.5, Number.NaN]) {
+        expect(service.confirmQuote({ userId: userId("bob"), quoteId })).toEqual({
+          status: "not_found",
+        });
+      }
+    });
+
+    it("never throws on a rejection path, returning a typed result instead", async () => {
+      const service = buildService();
+      const confirmed = await referenceQuote(service);
+      service.confirmQuote({ userId: userId("bob"), quoteId: confirmed.id });
+      const expiring = await referenceQuote(service);
+      const alices = await referenceQuote(service, "alice");
+      advanceClock(QUOTE_TTL_MS + 1);
+
+      const rejections = [
+        { request: { userId: userId("bob"), quoteId: confirmed.id }, status: "already_confirmed" },
+        { request: { userId: userId("bob"), quoteId: expiring.id }, status: "expired" },
+        { request: { userId: userId("bob"), quoteId: alices.id }, status: "not_owner" },
+        { request: { userId: userId("bob"), quoteId: 9999 }, status: "not_found" },
+      ];
+
+      for (const { request, status } of rejections) {
+        expect(() => service.confirmQuote(request)).not.toThrow();
+        expect(service.confirmQuote(request).status).toBe(status);
+      }
+    });
+  });
+
+  describe("listHistory", () => {
+    it("reports a confirmed quote to its owner with the amounts it was quoted at", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      advanceClock(2_000);
+      service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      const history = service.listHistory(userId("bob"));
+
+      expect(history).toHaveLength(1);
+      const [entry] = history;
+      expect(entry).toEqual(
+        expect.objectContaining({
+          id: quote.id,
+          destinationCurrency: "MXN",
+          createdAt: quote.createdAt,
+          confirmedAt: now,
+        }),
+      );
+      // The reference case read back out of its integer columns: 100 MXN, 0.314375 BRL per MXN
+      // (so 0.00314375 per centavo), R$31.44.
+      expect(entry.quantity.toString()).toBe("100");
+      expect(entry.unitPrice.toString()).toBe("0.00314375");
+      expect(entry.totalPrice.toString()).toBe("31.44");
+    });
+
+    it("never shows a confirmed quote to another user", async () => {
+      const service = buildService();
+      const quote = await referenceQuote(service);
+      service.confirmQuote({ userId: userId("bob"), quoteId: quote.id });
+
+      expect(service.listHistory(userId("alice"))).toEqual([]);
+      expect(service.listHistory(userId("carol"))).toEqual([]);
+    });
+
+    it("lists the most recently confirmed first, leaving out unconfirmed and expired quotes", async () => {
+      const service = buildService();
+      const confirmedLater = await referenceQuote(service);
+      advanceClock(1_000);
+      const confirmedEarlier = await referenceQuote(service);
+      const neverConfirmed = await referenceQuote(service);
+      const expiredUnconfirmed = await referenceQuote(service);
+
+      advanceClock(1_000);
+      service.confirmQuote({ userId: userId("bob"), quoteId: confirmedEarlier.id });
+      advanceClock(1_000);
+      service.confirmQuote({ userId: userId("bob"), quoteId: confirmedLater.id });
+      advanceClock(QUOTE_TTL_MS);
+      expect(
+        service.confirmQuote({ userId: userId("bob"), quoteId: expiredUnconfirmed.id }).status,
+      ).toBe("expired");
+
+      const ids = service.listHistory(userId("bob")).map((entry) => entry.id);
+
+      expect(ids).toEqual([confirmedLater.id, confirmedEarlier.id]);
+      expect(ids).not.toContain(neverConfirmed.id);
+      expect(ids).not.toContain(expiredUnconfirmed.id);
+    });
+
+    it("returns an empty list for a user with no confirmed quotes", async () => {
+      const service = buildService();
+      await referenceQuote(service);
+
+      expect(service.listHistory(userId("bob"))).toEqual([]);
+      expect(service.listHistory(9999)).toEqual([]);
     });
   });
 });

@@ -209,7 +209,7 @@ Quotes are valid for 10 seconds, so timestamps have to be unambiguous. SQLite's 
 server's UTC offset. So `created_at` is still a TEXT column, but the application writes it from its own clock as an ISO
 8601 UTC string, the same format as `expires_at`. Both come from a single clock reading, so the window is exactly
 10_000ms. Expiry is decided by `expires_at` alone. A quote is still valid at exactly `expires_at` and expired one
-millisecond later.
+millisecond later. The same was done for the `quote.confirmed_at`.
 
 Binance's bookTicker reports an empty side of the book as a price of zero ("0.00000000"), not a free currency. OKX's
 tickers report it as an empty string with size "0". The clients only reject malformed or negative prices, so the market
@@ -250,3 +250,4 @@ the exact fraction chain. Rounding before the final ceiling is what the earlier 
 
 The exchange clients now tell "pair not listed" apart from "pair can't be priced right now", and the simulated Binance
 lists EUR as EUR/USDT, the same as live.
+

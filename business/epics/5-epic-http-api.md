@@ -9,6 +9,11 @@ Expose the backend's capabilities over HTTP, wiring persistence, market data, an
 - `POST` create quote (destination currency + amount → calculated price)
 - `POST` confirm quote
 - `GET` history of confirmed quotes for the authenticated user
+  - History lists each quote's own fields; no aggregate (e.g. a total spent) is required. Each
+    per-quote amount is capped at 2^53 − 1 (see DECISIONS.md, Epic 4), but that cap does not
+    extend to a sum: many quotes that each fit can add up past it. If a total is ever added, sum
+    it exactly (SQL `SUM` read back with better-sqlite3's `safeIntegers`, or `bigint`/`Decimal`
+    in application code) and send it as a string, never as a JavaScript `number`.
 - Request validation and consistent error response shape
 - AuthN/session wiring for the authenticated endpoints
 

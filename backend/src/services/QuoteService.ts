@@ -1,8 +1,14 @@
-import { MAX_EXACT_COUNT } from "../domain/money";
+import type Decimal from "decimal.js";
+import {
+  MAX_EXACT_COUNT,
+  brlFromCentavos,
+  brlFromUnitPriceSubUnits,
+  destinationUnitsFromMinorUnits,
+} from "../domain/money";
 import { maxQuantityMinorUnits, priceQuote, type QuotePricing } from "../domain/pricing";
 import { expiresAtFrom } from "../domain/quoteLifecycle";
 import type { Quote } from "../domain/Quote";
-import type { QuoteRepository } from "../repositories/QuoteRepository";
+import type { ConfirmQuoteResult, QuoteRepository } from "../repositories/QuoteRepository";
 import type { SupportedCurrencyRepository } from "../repositories/SupportedCurrencyRepository";
 import type { UserRepository } from "../repositories/UserRepository";
 import type { MarketDataService } from "./MarketDataService";
@@ -33,6 +39,34 @@ export type CreateQuoteResult =
    */
   | { status: "quantity_too_large"; maxQuantity: number }
   | { status: "no_quote_capability"; reason: string };
+
+export interface ConfirmQuoteInput {
+  userId: number;
+  quoteId: number;
+}
+
+/** Every outcome of a confirmation, as data, for the same reason as `CreateQuoteResult`. */
+export type { ConfirmQuoteResult };
+
+/**
+ * A confirmed quote as history reports it: the stored integer counts read back into exact
+ * decimals, so Epic 5 only has to shape them.
+ */
+export interface HistoryEntry {
+  id: number;
+  destinationCurrency: string;
+  /** Whole destination-currency units: 100 MXN is `100`. */
+  quantity: Decimal;
+  /**
+   * BRL per destination-currency minor unit, at the precision it was stored with: 100 MXN for
+   * R$31.44 is `0.00314375` per MXN centavo.
+   */
+  unitPrice: Decimal;
+  /** BRL, to the centavo: `31.44`. */
+  totalPrice: Decimal;
+  createdAt: Date;
+  confirmedAt: Date;
+}
 
 /**
  * Owns what a quote is: who may ask for one, which currencies are quotable, what it costs, and
@@ -128,6 +162,45 @@ export class QuoteService {
 
     return { status: "created", quote };
   }
+
+  /**
+   * Confirms the caller's own quote while it is still valid, exactly once. There is no read before
+   * the write here: ownership, the exactly-once guard and expiry are all decided by the
+   * repository's single `UPDATE`, so no check made in this method could go stale before it lands.
+   *
+   * Every rejection returns a result and records nothing: an expired quote keeps `confirmed_at`
+   * `NULL` and never reaches history.
+   */
+  confirmQuote({ userId, quoteId }: ConfirmQuoteInput): ConfirmQuoteResult {
+    // An id that cannot name a row names no quote.
+    if (!Number.isSafeInteger(quoteId)) {
+      return { status: "not_found" };
+    }
+    return this.quoteRepository.confirmQuote({ quoteId, userId, now: this.clock() });
+  }
+
+  /**
+   * The user's own confirmed quotes, most recently confirmed first. Unconfirmed quotes, expired or
+   * not, are never part of it; a user with none gets an empty list.
+   */
+  listHistory(userId: number): HistoryEntry[] {
+    return this.quoteRepository.listConfirmedForUser(userId).map(toHistoryEntry);
+  }
+}
+
+function toHistoryEntry(quote: Quote): HistoryEntry {
+  if (!quote.confirmedAt) {
+    throw new Error(`Quote ${quote.id} is in history without being confirmed`);
+  }
+  return {
+    id: quote.id,
+    destinationCurrency: quote.destinationCurrency,
+    quantity: destinationUnitsFromMinorUnits(quote.quantity),
+    unitPrice: brlFromUnitPriceSubUnits(quote.unitPrice),
+    totalPrice: brlFromCentavos(quote.totalPrice),
+    createdAt: quote.createdAt,
+    confirmedAt: quote.confirmedAt,
+  };
 }
 
 /**

@@ -8,6 +8,9 @@ Build the React (Next.js) client with the three required screens, consuming the 
 - Login screen: username field
 - Quotation screen: currency selection, quantity input, create-quote action, price display, Confirm action, expired-quote messaging
 - History screen: list of confirmed quotes (currency, quantity, unit price, total price, timestamp) — no filters, no pagination
+  - No total across quotes is required. If one is ever wanted, it comes from the backend, not
+    from adding up the list in the browser: every per-quote amount fits in a JavaScript `number`
+    exactly, but their sum can pass 2^53 − 1 and silently lose precision (see Epic 5).
 - API client layer for talking to the backend
 - Session/auth state handling on the client
 
