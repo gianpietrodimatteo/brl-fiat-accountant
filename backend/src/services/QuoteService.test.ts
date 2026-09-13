@@ -114,6 +114,9 @@ describe("QuoteService", () => {
 
     it("persists the requested currency and quantity against the requesting user", async () => {
       // Simulated Mode's own standing prices, with OKX up, so the default fakes are exercised.
+      // EUR is listed there only as EUR/USDT, as on live Binance, so it is priced from that pair's
+      // 1.10 ask: the reference 5.00 Binance BRL ask (cheaper than OKX's 5.39) × 1.10 × 5.00 EUR
+      // at alice's 0% is R$27.50.
       const result = await buildService({ okxDown: false }).createQuote({
         userId: userId("alice"),
         destinationCurrency: "EUR",
@@ -125,6 +128,7 @@ describe("QuoteService", () => {
           userId: userId("alice"),
           destinationCurrency: "EUR",
           quantity: 500,
+          totalPrice: 2750,
           confirmedAt: null,
         }),
       );

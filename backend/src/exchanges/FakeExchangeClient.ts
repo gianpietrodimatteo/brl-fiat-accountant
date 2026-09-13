@@ -1,7 +1,10 @@
 import Decimal from "decimal.js";
 import type { ExchangeClient, TopOfBookResult } from "./ExchangeClient";
 
-/** Prices keyed by `BASE/QUOTE`; an `unavailable` entry stands in for an exchange outage. */
+/**
+ * Prices keyed by `BASE/QUOTE`. An `unavailable` entry stands in for an exchange outage; a pair
+ * with no entry at all is one the exchange doesn't list.
+ */
 export type FakePriceTable = Record<string, TopOfBookResult>;
 
 export function fakePairKey(baseAsset: string, quoteAsset: string): string {
@@ -50,9 +53,11 @@ export abstract class FakeExchangeClient implements ExchangeClient {
     const pair = fakePairKey(baseAsset, quoteAsset);
     this.requestedPairs.push(pair);
 
-    return Promise.resolve(this.prices[pair] ?? fakeUnavailable(this.unavailableReason(pair)));
+    return Promise.resolve(
+      this.prices[pair] ?? { status: "unlisted", reason: this.unlistedReason(pair) },
+    );
   }
 
-  /** Phrased by each fake to match what the real client says about a pair it can't serve. */
-  protected abstract unavailableReason(pair: string): string;
+  /** Phrased by each fake to match what the real client says about a pair it doesn't list. */
+  protected abstract unlistedReason(pair: string): string;
 }

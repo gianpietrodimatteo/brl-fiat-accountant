@@ -230,3 +230,23 @@ While doing this I found that decimal.js rounds every operation to 20 significan
 division before the final ceiling could over- or undercharge by a centavo, even on small totals (R$3.03 computed as R$
 3.04). More precision doesn't fix it, because any rounding before the final ceiling has the same problem. Pricing now
 keeps the chain as an exact fraction of integers and rounds exactly once, at the ceiling.
+
+Binance doesn't list every destination currency against USDT the same way round. On 2026-09-13, USDTBRL, USDTARS,
+USDTCOP, USDTMXN and USDTZAR existed, but there was no USDTEUR, only EURUSDT. We resolve pairs from exchangeInfo, but
+the code only looked for USDT/<destino>, so it never found EUR and every live EUR quote came back as no quote
+capability.
+
+Getting EUR from USDT on EURUSDT means buying EUR, which pays the ask. So when USDT/X isn't listed, we price that leg
+from X/USDT's ask: BRL per unit = USDT/BRL ask × X/USDT ask, and the user's spread goes on top as before. Which order to
+use is our rule, not Binance's. A listed USDT/X always wins. If the pair we'd use is halted, unreachable, or has an
+empty side of the book, that's an outage and we don't quote. We never try the other order. Only a pair missing from
+exchangeInfo sends us to the other order. Since exchangeInfo is cached for 10 minutes, a halt or a new listing can take
+up to 10 minutes to reach quoting, and that's acceptable.
+
+We multiply by the EURUSDT ask instead of turning it into a USDT/EUR price, because the ask is already USDT per EUR, the
+unit pricing needs. A separate USDT/EUR number (1/ask) would be a rounded decimal (1/1.17 never ends) before it reached
+the exact fraction chain. Rounding before the final ceiling is what the earlier decision rules out: 100 EUR at USDT/BRL
+5.00, EUR/USDT 1.17 and a 0.6% spread would cost R$588.52 instead of R$588.51.
+
+The exchange clients now tell "pair not listed" apart from "pair can't be priced right now", and the simulated Binance
+lists EUR as EUR/USDT, the same as live.

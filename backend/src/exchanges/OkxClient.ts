@@ -167,7 +167,7 @@ export class OkxClient implements ExchangeClient {
   async getTopOfBook(baseAsset: string, quoteAsset: string): Promise<TopOfBookResult> {
     if (baseAsset !== BASE_ASSET || quoteAsset !== QUOTE_ASSET) {
       return {
-        status: "unavailable",
+        status: "unlisted",
         reason: `OKX client only serves ${BASE_ASSET}/${QUOTE_ASSET}, not ${baseAsset}/${quoteAsset}`,
       };
     }

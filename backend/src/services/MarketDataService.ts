@@ -1,10 +1,14 @@
 import type Decimal from "decimal.js";
-import type { ComposedPriceResult } from "../domain/ComposedPrice";
+import type { ComposedPriceResult, DestinationLeg } from "../domain/ComposedPrice";
 import type { ExchangeClient, TopOfBookResult } from "../exchanges/ExchangeClient";
 
 /** Bridge asset every quote routes through, per [[business]]. */
 const BRIDGE_ASSET = "USDT";
 const LOCAL_CURRENCY = "BRL";
+
+type NoQuoteCapability = Extract<ComposedPriceResult, { status: "no_quote_capability" }>;
+
+type DestinationLegResult = { status: "available"; leg: DestinationLeg } | NoQuoteCapability;
 
 /**
  * Composes the two legs a quote is built from, so pricing never has to know that Binance and
@@ -26,28 +30,21 @@ export class MarketDataService {
     // three at once costs no extra Binance requests.
     const [binanceBrl, destination, okxBrl] = await Promise.all([
       topOfBook(this.binanceClient, BRIDGE_ASSET, LOCAL_CURRENCY),
-      topOfBook(this.binanceClient, BRIDGE_ASSET, destinationCurrency),
+      resolveDestinationLeg(this.binanceClient, destinationCurrency),
       topOfBook(this.okxClient, BRIDGE_ASSET, LOCAL_CURRENCY),
     ]);
 
     // The clients only reject malformed or negative prices, so a zero can still arrive: that is
     // how Binance reports an empty side of the book (OKX's empty string is read as zero too),
     // not a free one. Each leg is checked on the side it is actually priced from.
-    if (binanceBrl.status === "unavailable") {
+    if (binanceBrl.status !== "available") {
       return noQuoteCapability(BRIDGE_ASSET, LOCAL_CURRENCY, binanceBrl.reason);
     }
     if (!isUsablePrice(binanceBrl.ask)) {
       return noQuoteCapability(BRIDGE_ASSET, LOCAL_CURRENCY, unusablePrice("ask", binanceBrl.ask));
     }
-    if (destination.status === "unavailable") {
-      return noQuoteCapability(BRIDGE_ASSET, destinationCurrency, destination.reason);
-    }
-    if (!isUsablePrice(destination.bid)) {
-      return noQuoteCapability(
-        BRIDGE_ASSET,
-        destinationCurrency,
-        unusablePrice("bid", destination.bid),
-      );
+    if (destination.status !== "available") {
+      return destination;
     }
 
     // Cheaper for the client means paying fewer BRL per USDT. A tie keeps Binance, so the
@@ -62,16 +59,54 @@ export class MarketDataService {
       destinationCurrency,
       usdtBrlAsk: okxIsCheaper ? okxBrl.ask : binanceBrl.ask,
       usdtBrlSource: okxIsCheaper ? "okx" : "binance",
-      usdtDestinationBid: destination.bid,
+      destinationLeg: destination.leg,
     };
   }
+}
+
+/**
+ * The destination leg is always Binance, in whichever order Binance lists the pair: USDT/`<destino>`
+ * whenever it is listed, and `<destino>`/USDT only when it isn't — live Binance has EUR solely as
+ * EUR/USDT. A listed pair that fails is an outage rather than a missing listing, so it never sends
+ * the lookup to the other order.
+ */
+async function resolveDestinationLeg(
+  binanceClient: ExchangeClient,
+  destinationCurrency: string,
+): Promise<DestinationLegResult> {
+  const direct = await topOfBook(binanceClient, BRIDGE_ASSET, destinationCurrency);
+  if (direct.status === "unavailable") {
+    return noQuoteCapability(BRIDGE_ASSET, destinationCurrency, direct.reason);
+  }
+  if (direct.status === "available") {
+    return isUsablePrice(direct.bid)
+      ? { status: "available", leg: { listing: "direct", usdtDestinationBid: direct.bid } }
+      : noQuoteCapability(BRIDGE_ASSET, destinationCurrency, unusablePrice("bid", direct.bid));
+  }
+
+  const inverted = await topOfBook(binanceClient, destinationCurrency, BRIDGE_ASSET);
+  if (inverted.status === "unavailable") {
+    return noQuoteCapability(destinationCurrency, BRIDGE_ASSET, inverted.reason);
+  }
+  if (inverted.status === "available") {
+    return isUsablePrice(inverted.ask)
+      ? { status: "available", leg: { listing: "inverted", destinationUsdtAsk: inverted.ask } }
+      : noQuoteCapability(destinationCurrency, BRIDGE_ASSET, unusablePrice("ask", inverted.ask));
+  }
+
+  // Listed in neither order: name the pair [[business]] asks for, with both lookups' reasons.
+  return noQuoteCapability(
+    BRIDGE_ASSET,
+    destinationCurrency,
+    `${direct.reason}; ${inverted.reason}`,
+  );
 }
 
 function noQuoteCapability(
   baseAsset: string,
   quoteAsset: string,
   reason: string,
-): ComposedPriceResult {
+): NoQuoteCapability {
   return {
     status: "no_quote_capability",
     reason: `Binance ${baseAsset}/${quoteAsset} unavailable: ${reason}`,

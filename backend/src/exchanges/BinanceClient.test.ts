@@ -13,7 +13,9 @@ const EXCHANGE_INFO_BODY = {
   symbols: [
     { symbol: "USDTBRL", baseAsset: "USDT", quoteAsset: "BRL", status: "TRADING" },
     { symbol: "USDTMXN", baseAsset: "USDT", quoteAsset: "MXN", status: "TRADING" },
-    { symbol: "USDTEUR", baseAsset: "USDT", quoteAsset: "EUR", status: "BREAK" },
+    // Live Binance lists EUR against USDT only this way round: there is no USDTEUR symbol.
+    { symbol: "EURUSDT", baseAsset: "EUR", quoteAsset: "USDT", status: "TRADING" },
+    { symbol: "USDTZAR", baseAsset: "USDT", quoteAsset: "ZAR", status: "BREAK" },
     { symbol: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", status: "TRADING" },
   ],
 };
@@ -78,20 +80,73 @@ describe("BinanceClient", () => {
     expect(result.status).toBe("available");
   });
 
-  it("does not hardcode pair strings: an unresolvable pair is reported unavailable, not thrown", async () => {
+  it("does not hardcode pair strings: an unresolvable pair is reported unlisted, not thrown", async () => {
     const fetchFn = fakeFetch({});
     const client = new BinanceClient(fetchFn);
 
     const result = await client.getTopOfBook("USDT", "JPY");
 
     expect(result).toEqual({
-      status: "unavailable",
+      status: "unlisted",
       reason: expect.stringContaining("USDT/JPY"),
     });
   });
 
-  it("ignores a pair whose status is not TRADING", async () => {
+  it("reports a listed pair that is not TRADING as unavailable, never unlisted, so callers don't try the other order", async () => {
     const fetchFn = fakeFetch({});
+    const client = new BinanceClient(fetchFn);
+
+    const result = await client.getTopOfBook("USDT", "ZAR");
+
+    expect(result).toEqual({
+      status: "unavailable",
+      reason: "Binance USDTZAR is not trading (status BREAK)",
+    });
+    const bookTickerCalls = (fetchFn as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      url.toString().includes("bookTicker"),
+    );
+    expect(bookTickerCalls).toHaveLength(0);
+  });
+
+  it("matches only the order Binance lists a pair in, without fetching the other order", async () => {
+    const fetchFn = fakeFetch({});
+    const client = new BinanceClient(fetchFn);
+
+    const result = await client.getTopOfBook("USDT", "EUR");
+
+    expect(result).toEqual({
+      status: "unlisted",
+      reason: expect.stringContaining("USDT/EUR"),
+    });
+    const bookTickerCalls = (fetchFn as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      url.toString().includes("bookTicker"),
+    );
+    expect(bookTickerCalls).toHaveLength(0);
+  });
+
+  it("serves a pair listed only as <destination>/USDT when asked for it in that order", async () => {
+    const fetchFn = fakeFetch({
+      bookTicker: (symbol) => jsonResponse(bookTickerBody(symbol, "1.15980000", "1.15990000")),
+    });
+    const client = new BinanceClient(fetchFn);
+
+    const result = await client.getTopOfBook("EUR", "USDT");
+
+    expect(result.status).toBe("available");
+    if (result.status === "available") {
+      expect(result.bid.toString()).toBe("1.1598");
+      expect(result.ask.toString()).toBe("1.1599");
+    }
+    const bookTickerCall = (fetchFn as ReturnType<typeof vi.fn>).mock.calls.find(([url]) =>
+      url.toString().includes("bookTicker"),
+    );
+    expect(bookTickerCall?.[0].toString()).toContain("symbol=EURUSDT");
+  });
+
+  it("reports an exchangeInfo outage as unavailable, never unlisted, so callers don't try the other order", async () => {
+    const fetchFn = fakeFetch({
+      exchangeInfo: () => jsonResponse({}, { ok: false, status: 503 }),
+    });
     const client = new BinanceClient(fetchFn);
 
     const result = await client.getTopOfBook("USDT", "EUR");

@@ -1,5 +1,5 @@
 import type Decimal from "decimal.js";
-import type { ComposedPrice } from "./ComposedPrice";
+import type { ComposedPrice, DestinationLeg } from "./ComposedPrice";
 import {
   ceilToCentavos,
   ceilToUnitPriceSubUnits,
@@ -37,8 +37,10 @@ export interface QuotePricing {
 /**
  * Prices a quote following [[business]] in order: the client buys USDT with BRL at the USDT/BRL
  * ask and sells it for the destination currency at the USDT/`<destino>` bid, so BRL per
- * destination unit is the ask divided by the bid; the user's spread goes on top of that composed
- * cost; the total is that rate times the quantity.
+ * destination unit is the ask divided by the bid — or, where Binance lists the pair only as
+ * `<destino>`/USDT, buys the destination currency at that pair's ask, so it is the two asks
+ * multiplied; the user's spread goes on top of that composed cost; the total is that rate times
+ * the quantity.
  *
  * Rounding happens exactly once, on the total. Ceiling the per-unit rate first and multiplying
  * afterwards would turn the reference check's R$31.44 into R$32.00, so `unitPrice` is a record
@@ -79,15 +81,29 @@ export function maxQuantityMinorUnits({
 }
 
 function brlPerDestinationUnitFor(
-  { usdtBrlAsk, usdtDestinationBid, destinationCurrency }: ComposedPrice,
+  { usdtBrlAsk, destinationLeg, destinationCurrency }: ComposedPrice,
   spreadBasisPoints: number,
 ): ExactFraction {
   assertPositivePrice(usdtBrlAsk, "USDT/BRL ask");
-  assertPositivePrice(usdtDestinationBid, `USDT/${destinationCurrency} bid`);
 
   return ExactFraction.of(usdtBrlAsk)
-    .dividedBy(ExactFraction.of(usdtDestinationBid))
+    .times(usdtPerDestinationUnit(destinationLeg, destinationCurrency))
     .times(ExactFraction.of(spreadMultiplierFromBasisPoints(spreadBasisPoints)));
+}
+
+/**
+ * USDT spent per destination unit. A direct listing quotes destination units per USDT, so its
+ * bid is divided out; an inverted one already quotes USDT per destination unit, so its ask is
+ * used as it is and no reciprocal ever has to be taken outside the exact chain.
+ */
+function usdtPerDestinationUnit(leg: DestinationLeg, destinationCurrency: string): ExactFraction {
+  if (leg.listing === "direct") {
+    assertPositivePrice(leg.usdtDestinationBid, `USDT/${destinationCurrency} bid`);
+    return ExactFraction.of(1).dividedBy(ExactFraction.of(leg.usdtDestinationBid));
+  }
+
+  assertPositivePrice(leg.destinationUsdtAsk, `${destinationCurrency}/USDT ask`);
+  return ExactFraction.of(leg.destinationUsdtAsk);
 }
 
 /** One minor unit expressed in whole destination units — 0.01 for every supported currency. */

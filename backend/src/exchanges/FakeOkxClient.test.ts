@@ -44,7 +44,7 @@ describe("FakeOkxClient", () => {
     const result = await new FakeOkxClient().getTopOfBook("USDT", "MXN");
 
     expect(result).toEqual({
-      status: "unavailable",
+      status: "unlisted",
       reason: "OKX client only serves USDT/BRL, not USDT/MXN",
     });
   });

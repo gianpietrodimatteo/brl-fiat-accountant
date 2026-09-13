@@ -11,7 +11,17 @@ function composedPrice(usdtBrlAsk: string, usdtDestinationBid: string): Composed
     destinationCurrency: "MXN",
     usdtBrlAsk: new Decimal(usdtBrlAsk),
     usdtBrlSource: "binance",
-    usdtDestinationBid: new Decimal(usdtDestinationBid),
+    destinationLeg: { listing: "direct", usdtDestinationBid: new Decimal(usdtDestinationBid) },
+  };
+}
+
+/** Legs for a destination Binance lists only as `<destino>`/USDT, the way it lists EUR. */
+function invertedComposedPrice(usdtBrlAsk: string, destinationUsdtAsk: string): ComposedPrice {
+  return {
+    destinationCurrency: "EUR",
+    usdtBrlAsk: new Decimal(usdtBrlAsk),
+    usdtBrlSource: "binance",
+    destinationLeg: { listing: "inverted", destinationUsdtAsk: new Decimal(destinationUsdtAsk) },
   };
 }
 
@@ -171,6 +181,49 @@ describe("priceQuote", () => {
       priceQuote({
         composedPrice: composedPrice("5.00", "16.00"),
         quantityMinorUnits: 100.5,
+        spreadBasisPoints: 60,
+      }),
+    ).toThrow(RangeError);
+  });
+});
+
+describe("priceQuote from an inverted <destino>/USDT pair", () => {
+  const ONE_HUNDRED_EUR = 10000;
+
+  it("prices the same trade as the direct pair it mirrors", () => {
+    // Buying EUR at a EUR/USDT ask of 1.25 spends as much USDT per euro as selling USDT at a
+    // USDT/EUR bid of 0.80, so 100 EUR costs 5.00 × 1.25 × 1.006 × 100 = R$628.75 either way.
+    const request = { quantityMinorUnits: ONE_HUNDRED_EUR, spreadBasisPoints: 60 };
+
+    const inverted = priceQuote({
+      ...request,
+      composedPrice: invertedComposedPrice("5.00", "1.25"),
+    });
+    const direct = priceQuote({ ...request, composedPrice: composedPrice("5.00", "0.80") });
+
+    expect(inverted).toEqual({ unitPrice: 6287500, totalPrice: 62875 });
+    expect(direct).toEqual(inverted);
+  });
+
+  it("multiplies by the ask instead of dividing by a rounded reciprocal of it", () => {
+    // 5.00 × 1.17 × 1.006 × 100 is exactly R$588.51. 1 / 1.17 never terminates, so a USDT/EUR bid
+    // derived from the ask is rounded to 20 digits and leaves the total a sliver above: R$588.52.
+    const request = { quantityMinorUnits: ONE_HUNDRED_EUR, spreadBasisPoints: 60 };
+    const reciprocalBid = new Decimal(1).dividedBy("1.17").toString();
+
+    expect(
+      priceQuote({ ...request, composedPrice: composedPrice("5.00", reciprocalBid) }).totalPrice,
+    ).toBe(58852);
+    expect(
+      priceQuote({ ...request, composedPrice: invertedComposedPrice("5.00", "1.17") }).totalPrice,
+    ).toBe(58851);
+  });
+
+  it("rejects an ask that is not a positive price", () => {
+    expect(() =>
+      priceQuote({
+        composedPrice: invertedComposedPrice("5.00", "0"),
+        quantityMinorUnits: ONE_HUNDRED_EUR,
         spreadBasisPoints: 60,
       }),
     ).toThrow(RangeError);

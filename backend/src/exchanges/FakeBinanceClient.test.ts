@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FakeBinanceClient } from "./FakeBinanceClient";
 import { fakePrice, fakeUnavailable } from "./FakeExchangeClient";
 
-const SUPPORTED_DESTINATIONS = ["EUR", "ARS", "COP", "MXN", "ZAR"];
+// Every supported destination except EUR, which live Binance lists only as EUR/USDT.
+const DIRECTLY_LISTED_DESTINATIONS = ["ARS", "COP", "MXN", "ZAR"];
 
 /** Turns any network access into a loud failure, so a fake that reached out would be caught. */
 function forbidNetwork(): {
@@ -32,18 +33,32 @@ describe("FakeBinanceClient", () => {
     expect(result.status === "available" && result.ask.greaterThan(result.bid)).toBe(true);
   });
 
-  it.each(SUPPORTED_DESTINATIONS)("serves the USDT/%s destination leg", async (currency) => {
+  it.each(DIRECTLY_LISTED_DESTINATIONS)("serves the USDT/%s destination leg", async (currency) => {
     const result = await new FakeBinanceClient().getTopOfBook("USDT", currency);
 
     expect(result).toMatchObject({ status: "available" });
     expect(result.status === "available" && result.bid.isPositive()).toBe(true);
   });
 
+  it("lists EUR only as EUR/USDT, the way live Binance does", async () => {
+    const client = new FakeBinanceClient();
+
+    const inverted = await client.getTopOfBook("EUR", "USDT");
+    const direct = await client.getTopOfBook("USDT", "EUR");
+
+    expect(inverted).toMatchObject({ status: "available" });
+    expect(inverted.status === "available" && inverted.ask.greaterThan(inverted.bid)).toBe(true);
+    expect(direct).toEqual({
+      status: "unlisted",
+      reason: "No Binance trading pair found for USDT/EUR",
+    });
+  });
+
   it("reports an unknown pair the way the real client does", async () => {
     const result = await new FakeBinanceClient().getTopOfBook("USDT", "JPY");
 
     expect(result).toEqual({
-      status: "unavailable",
+      status: "unlisted",
       reason: "No Binance trading pair found for USDT/JPY",
     });
   });

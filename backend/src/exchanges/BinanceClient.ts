@@ -17,8 +17,14 @@ const UNAVAILABLE_TTL_MS = 1000;
 
 const EXCHANGE_INFO_CACHE_KEY = "exchangeInfo";
 
+/** A Binance symbol and its trading status as exchangeInfo reported it, e.g. TRADING or BREAK. */
+interface ListedSymbol {
+  symbol: string;
+  status: string;
+}
+
 type SymbolResolution =
-  | { status: "available"; symbolsByPair: Map<string, string> }
+  | { status: "available"; symbolsByPair: Map<string, ListedSymbol> }
   | { status: "unavailable"; reason: string };
 
 export class BinanceClient implements ExchangeClient {
@@ -41,14 +47,26 @@ export class BinanceClient implements ExchangeClient {
       return { status: "unavailable", reason: resolution.reason };
     }
 
-    const symbol = resolution.symbolsByPair.get(pairKey(baseAsset, quoteAsset));
-    if (!symbol) {
+    // Only the exact order is matched. Binance lists some pairs one way round only (EUR/USDT,
+    // never USDT/EUR), and the order decides which side of the book a caller trades on, so
+    // asking for the other one is the caller's decision rather than a lookup detail.
+    const listed = resolution.symbolsByPair.get(pairKey(baseAsset, quoteAsset));
+    if (!listed) {
       return {
-        status: "unavailable",
+        status: "unlisted",
         reason: `No Binance trading pair found for ${baseAsset}/${quoteAsset}`,
       };
     }
+    // A halted pair is still listed: that is an outage, so it must not read as unlisted and send
+    // a caller to the other order.
+    if (listed.status !== "TRADING") {
+      return {
+        status: "unavailable",
+        reason: `Binance ${listed.symbol} is not trading (status ${listed.status})`,
+      };
+    }
 
+    const { symbol } = listed;
     return this.bookTickerCache.get(symbol, () => this.fetchBookTicker(symbol));
   }
 
@@ -101,8 +119,8 @@ function pairKey(baseAsset: string, quoteAsset: string): string {
   return `${baseAsset}/${quoteAsset}`;
 }
 
-function parseExchangeInfo(data: unknown): Map<string, string> {
-  const symbolsByPair = new Map<string, string>();
+function parseExchangeInfo(data: unknown): Map<string, ListedSymbol> {
+  const symbolsByPair = new Map<string, ListedSymbol>();
   if (!isRecord(data) || !Array.isArray(data.symbols)) {
     throw new Error("malformed exchangeInfo response: missing symbols array");
   }
@@ -113,9 +131,12 @@ function parseExchangeInfo(data: unknown): Map<string, string> {
       typeof entry.symbol === "string" &&
       typeof entry.baseAsset === "string" &&
       typeof entry.quoteAsset === "string" &&
-      entry.status === "TRADING"
+      typeof entry.status === "string"
     ) {
-      symbolsByPair.set(pairKey(entry.baseAsset, entry.quoteAsset), entry.symbol);
+      symbolsByPair.set(pairKey(entry.baseAsset, entry.quoteAsset), {
+        symbol: entry.symbol,
+        status: entry.status,
+      });
     }
   }
 

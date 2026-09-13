@@ -10,7 +10,7 @@ const SIMULATED_USDT_BRL = fakePrice("5.37", "5.39");
 
 /**
  * Simulated Mode stand-in for `OkxClient`: same interface, same single instrument, same
- * "unavailable" wording for any other pair — but backed by memory instead of a WebSocket, so
+ * "unlisted" wording for any other pair — but backed by memory instead of a WebSocket, so
  * it opens no connection and has nothing to reconnect or poll.
  *
  * The one price it serves is the whole of its configuration: pass an `unavailable` result to
@@ -21,7 +21,7 @@ export class FakeOkxClient extends FakeExchangeClient {
     super({ [INSTRUMENT_PAIR]: usdtBrl });
   }
 
-  protected unavailableReason(pair: string): string {
+  protected unlistedReason(pair: string): string {
     return `OKX client only serves ${INSTRUMENT_PAIR}, not ${pair}`;
   }
 }

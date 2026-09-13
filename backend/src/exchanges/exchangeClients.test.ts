@@ -107,8 +107,13 @@ describe("simulated mode end to end", () => {
       status: "available",
       destinationCurrency: "MXN",
       usdtBrlSource: "okx",
+      destinationLeg: { listing: "direct" },
     });
-    expect(result.status === "available" && result.usdtDestinationBid.isPositive()).toBe(true);
+    expect(
+      result.status === "available" &&
+        result.destinationLeg.listing === "direct" &&
+        result.destinationLeg.usdtDestinationBid.isPositive(),
+    ).toBe(true);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(socketSpy).not.toHaveBeenCalled();
   });
@@ -120,5 +125,15 @@ describe("simulated mode end to end", () => {
     const result = await new MarketDataService(binance, okx).getComposedPrice("EUR");
 
     expect(result).toMatchObject({ status: "available", usdtBrlSource: "binance" });
+  });
+
+  it("prices EUR through EUR/USDT, the only order live Binance lists it in", async () => {
+    const clients = createExchangeClients("simulated");
+
+    const result = await new MarketDataService(clients.binance, clients.okx).getComposedPrice(
+      "EUR",
+    );
+
+    expect(result).toMatchObject({ status: "available", destinationLeg: { listing: "inverted" } });
   });
 });

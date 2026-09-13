@@ -39,6 +39,14 @@ rather than picking a side.
 - The client buys destination currency using BRL, bridged through USDT:
   1. Buy USDT with BRL at the USDT/BRL **ask**.
   2. Sell that USDT for the destination currency at the USDT/`<destino>` **bid**.
+     - Binance lists some destination currencies only the other way round: EUR trades as
+       EUR/USDT, and there is no USDT/EUR. When USDT/`<destino>` is not listed, step 2 is the
+       same trade on `<destino>`/USDT — buy the destination currency with USDT at that pair's
+       **ask**. A listed USDT/`<destino>` always takes precedence. A listed pair that can't be
+       priced — halted (not TRADING), unreachable, or with an empty side of the book — is an
+       outage (no quote capability), never a reason to try the other order. Only a pair Binance
+       doesn't list at all sends the lookup to the other order. This clarifies step 2; it does
+       not replace it.
   3. Apply the user's spread on top of that composed BRL cost.
 - Reference check: USDT/BRL ask = 5.00, USDT/MXN bid = 16.00, spread = 0.6% → 100 MXN costs
   R$31.44. Any implementation of the pricing formula must reproduce this exactly.

@@ -72,7 +72,12 @@ describe("MarketDataService", () => {
 
       const result = await new MarketDataService(binance, okx).getComposedPrice("COP");
 
-      expect(result.status === "available" && result.usdtDestinationBid.toString()).toBe("4000");
+      expect(result).toMatchObject({ status: "available", destinationLeg: { listing: "direct" } });
+      expect(
+        result.status === "available" &&
+          result.destinationLeg.listing === "direct" &&
+          result.destinationLeg.usdtDestinationBid.toString(),
+      ).toBe("4000");
       expect(binance.requestedPairs).toContain("USDT/COP");
     });
 
@@ -97,16 +102,102 @@ describe("MarketDataService", () => {
       expect(result.status).toBe("no_quote_capability");
     });
 
-    it("reports no quote capability for a currency Binance has no pair for", async () => {
+    it("reports no quote capability for a currency Binance lists in neither order", async () => {
       const binance = new FakeBinanceClient();
       const okx = new FakeOkxClient();
 
       const result = await new MarketDataService(binance, okx).getComposedPrice("JPY");
 
-      expect(result).toMatchObject({ status: "no_quote_capability" });
-      expect(result.status === "no_quote_capability" && result.reason).toContain(
-        "No Binance trading pair found for USDT/JPY",
-      );
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason:
+          "Binance USDT/JPY unavailable: No Binance trading pair found for USDT/JPY; " +
+          "No Binance trading pair found for JPY/USDT",
+      });
+    });
+  });
+
+  describe("<destino>/USDT leg, when Binance lists only that order", () => {
+    it("prices the destination leg from that pair's ask", async () => {
+      const binance = new FakeBinanceClient({ "EUR/USDT": fakePrice("1.1598", "1.1599") });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("EUR");
+
+      expect(result).toMatchObject({
+        status: "available",
+        destinationLeg: { listing: "inverted" },
+      });
+      expect(
+        result.status === "available" &&
+          result.destinationLeg.listing === "inverted" &&
+          result.destinationLeg.destinationUsdtAsk.toString(),
+      ).toBe("1.1599");
+    });
+
+    it("asks Binance for USDT/<destino> first and only then for the inverted pair", async () => {
+      const binance = new FakeBinanceClient();
+      const okx = new FakeOkxClient();
+
+      await new MarketDataService(binance, okx).getComposedPrice("EUR");
+
+      expect(binance.requestedPairs).toEqual(["USDT/BRL", "USDT/EUR", "EUR/USDT"]);
+      expect(okx.requestedPairs).toEqual(["USDT/BRL"]);
+    });
+
+    it("prefers USDT/<destino> when Binance lists both orders", async () => {
+      const binance = new FakeBinanceClient({
+        "USDT/EUR": fakePrice("0.86", "0.87"),
+        "EUR/USDT": fakePrice("1.1598", "1.1599"),
+      });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("EUR");
+
+      expect(result).toMatchObject({ status: "available", destinationLeg: { listing: "direct" } });
+      expect(binance.requestedPairs).not.toContain("EUR/USDT");
+    });
+
+    it("does not try the other order when the listed pair is only unavailable", async () => {
+      const binance = new FakeBinanceClient({
+        "USDT/MXN": fakeUnavailable("Binance bookTicker returned HTTP 503"),
+        "MXN/USDT": fakePrice("0.054", "0.055"),
+      });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("MXN");
+
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason: "Binance USDT/MXN unavailable: Binance bookTicker returned HTTP 503",
+      });
+      expect(binance.requestedPairs).not.toContain("MXN/USDT");
+    });
+
+    it("reports no quote capability against the inverted pair when it is unavailable", async () => {
+      const binance = new FakeBinanceClient({
+        "EUR/USDT": fakeUnavailable("Binance bookTicker returned HTTP 503"),
+      });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("EUR");
+
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason: "Binance EUR/USDT unavailable: Binance bookTicker returned HTTP 503",
+      });
+    });
+
+    it("reports no quote capability when the inverted pair's ask is zero", async () => {
+      const binance = new FakeBinanceClient({ "EUR/USDT": fakePrice("1.09", "0") });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("EUR");
+
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason: "Binance EUR/USDT unavailable: no usable ask (got 0)",
+      });
     });
   });
 

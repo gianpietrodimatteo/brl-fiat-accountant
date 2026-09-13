@@ -216,11 +216,11 @@ describe("OkxClient", () => {
       });
     });
 
-    it("reports unavailable for any pair other than USDT/BRL", async () => {
+    it("reports unlisted for any pair other than USDT/BRL", async () => {
       harness = createHarness();
 
       await expect(harness.client.getTopOfBook("USDT", "MXN")).resolves.toEqual({
-        status: "unavailable",
+        status: "unlisted",
         reason: expect.stringContaining("USDT/MXN"),
       });
     });
