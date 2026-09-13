@@ -251,3 +251,13 @@ the exact fraction chain. Rounding before the final ceiling is what the earlier 
 The exchange clients now tell "pair not listed" apart from "pair can't be priced right now", and the simulated Binance
 lists EUR as EUR/USDT, the same as live.
 
+# 5 - HTTP API
+
+I've chosen Fastify. Fastify generally outperforms Express in raw throughput and latency, and it provides built‑in
+schema validation and serialization that can replace much of what you’d otherwise add with Zod.
+
+The authentication is a standard Bearer header + CORS.
+
+The wire format will be Integer minor unites.
+
+The backend sets up the database automatically at startup (migrate + seed).
