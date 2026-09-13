@@ -515,6 +515,48 @@ describe("OkxClient", () => {
       });
     });
 
+    it("reads OKX's empty price string as a zero, replacing the vanished price", async () => {
+      harness = createHarness();
+      harness.client.start();
+      harness.socket().simulateOpen();
+      harness.socket().simulateMessage(tickerFrame("5.00", "5.02"));
+      harness.socket().simulateMessage(tickerFrame("5.00", ""));
+
+      const result = await harness.client.getTopOfBook("USDT", "BRL");
+
+      // Serving the old 5.02 would quote from an ask that no longer exists on the book.
+      expect(result.status).toBe("available");
+      if (result.status === "available") {
+        expect(result.ask.toString()).toBe("0");
+        expect(result.bid.toString()).toBe("5");
+      }
+    });
+
+    it("keeps a valid ask when only the bid side of the book is empty", async () => {
+      harness = createHarness();
+      harness.client.start();
+      harness.socket().simulateOpen();
+      harness.socket().simulateMessage(tickerFrame("5.00", "5.02"));
+      harness.socket().simulateMessage(tickerFrame("", "5.03"));
+
+      const result = await harness.client.getTopOfBook("USDT", "BRL");
+
+      expect(result.status === "available" && result.ask.toString()).toBe("5.03");
+    });
+
+    it("reads an empty price string from the REST fallback as a zero too", async () => {
+      harness = createHarness({ fetchImpl: () => jsonResponse(restBody("4.90", "")) });
+      harness.client.start();
+      harness.socket().simulateOpen();
+      harness.socket().simulateMessage(tickerFrame("5.00", "5.02"));
+      harness.socket().simulateDrop();
+
+      await harness.advance(1000);
+
+      const result = await harness.client.getTopOfBook("USDT", "BRL");
+      expect(result.status === "available" && result.ask.toString()).toBe("0");
+    });
+
     it("ignores a WebSocket frame for another instrument", async () => {
       harness = createHarness();
       harness.client.start();

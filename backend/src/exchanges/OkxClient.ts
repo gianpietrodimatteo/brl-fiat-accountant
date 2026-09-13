@@ -480,8 +480,8 @@ function parseTickerEntry(entry: unknown): TickerUpdate | null {
   }
 
   try {
-    const bid = new Decimal(entry.bidPx);
-    const ask = new Decimal(entry.askPx);
+    const bid = parsePrice(entry.bidPx);
+    const ask = parsePrice(entry.askPx);
     if (!bid.isFinite() || !ask.isFinite() || bid.isNegative() || ask.isNegative()) {
       return null;
     }
@@ -489,6 +489,16 @@ function parseTickerEntry(entry: unknown): TickerUpdate | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * OKX reports an empty side of the book as an empty price string, where Binance reports a zero
+ * price. Reading it as zero keeps the update instead of discarding it, so a vanished ask
+ * replaces the last known one rather than being served until it ages out, and it is then
+ * unusable like any other zero.
+ */
+function parsePrice(price: string): Decimal {
+  return new Decimal(price === "" ? 0 : price);
 }
 
 function parseTimestamp(ts: unknown): number | null {

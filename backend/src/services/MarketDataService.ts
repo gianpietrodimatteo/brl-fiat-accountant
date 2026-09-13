@@ -30,8 +30,9 @@ export class MarketDataService {
       topOfBook(this.okxClient, BRIDGE_ASSET, LOCAL_CURRENCY),
     ]);
 
-    // The clients only reject negative prices, so a zero can still arrive — an empty side of the
-    // book, not a free one. Each leg is checked on the side it is actually priced from.
+    // The clients only reject malformed or negative prices, so a zero can still arrive: that is
+    // how Binance reports an empty side of the book (OKX's empty string is read as zero too),
+    // not a free one. Each leg is checked on the side it is actually priced from.
     if (binanceBrl.status === "unavailable") {
       return noQuoteCapability(BRIDGE_ASSET, LOCAL_CURRENCY, binanceBrl.reason);
     }

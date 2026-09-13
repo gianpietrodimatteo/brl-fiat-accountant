@@ -211,13 +211,11 @@ server's UTC offset. So `created_at` is still a TEXT column, but the application
 10_000ms. Expiry is decided by `expires_at` alone. A quote is still valid at exactly `expires_at` and expired one
 millisecond later.
 
--- TODO: I've researched more about this and that's not quite what 0 would mean
-Exchanges can report a price of zero, which means an empty side of the order book, not a free currency. The clients only
-reject negative prices, so the market data service now treats a zero or non-finite price as unusable. For Binance (the
-USDT/BRL ask or the destination bid) that means no quote capability. For OKX it means OKX is unavailable, so we fall
-back
-to Binance instead of treating zero as the cheapest ask. This touches availability logic from Epic 3, but it's the only
-place the OKX fallback can be handled correctly.
+Binance's bookTicker reports an empty side of the book as a price of zero ("0.00000000"), not a free currency. OKX's
+tickers report it as an empty string with size "0". The clients only reject malformed or negative prices, so the market
+data service treats a zero or non-finite price as unusable, checked on the side each leg is priced from. For Binance
+(the USDT/BRL ask or the destination bid) that means no quote capability. For OKX it means OKX is unavailable, so we
+fall back to Binance instead of treating an empty ask as the cheapest one.
 
 I've researched what would be our true bottleneck regarding our number representations because I want to impose a
 ceiling to a quote's quantity or total_price. The integer bottleneck is not SQLite (INTEGER goes to 2^63−1) but
