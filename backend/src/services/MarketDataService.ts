@@ -1,3 +1,4 @@
+import type Decimal from "decimal.js";
 import type { ComposedPriceResult } from "../domain/ComposedPrice";
 import type { ExchangeClient, TopOfBookResult } from "../exchanges/ExchangeClient";
 
@@ -29,16 +30,31 @@ export class MarketDataService {
       topOfBook(this.okxClient, BRIDGE_ASSET, LOCAL_CURRENCY),
     ]);
 
+    // The clients only reject negative prices, so a zero can still arrive — an empty side of the
+    // book, not a free one. Each leg is checked on the side it is actually priced from.
     if (binanceBrl.status === "unavailable") {
       return noQuoteCapability(BRIDGE_ASSET, LOCAL_CURRENCY, binanceBrl.reason);
+    }
+    if (!isUsablePrice(binanceBrl.ask)) {
+      return noQuoteCapability(BRIDGE_ASSET, LOCAL_CURRENCY, unusablePrice("ask", binanceBrl.ask));
     }
     if (destination.status === "unavailable") {
       return noQuoteCapability(BRIDGE_ASSET, destinationCurrency, destination.reason);
     }
+    if (!isUsablePrice(destination.bid)) {
+      return noQuoteCapability(
+        BRIDGE_ASSET,
+        destinationCurrency,
+        unusablePrice("bid", destination.bid),
+      );
+    }
 
     // Cheaper for the client means paying fewer BRL per USDT. A tie keeps Binance, so the
-    // composed price stays deterministic.
-    const okxIsCheaper = okxBrl.status === "available" && okxBrl.ask.lessThan(binanceBrl.ask);
+    // composed price stays deterministic. An unusable OKX ask is just an unavailable OKX.
+    const okxIsCheaper =
+      okxBrl.status === "available" &&
+      isUsablePrice(okxBrl.ask) &&
+      okxBrl.ask.lessThan(binanceBrl.ask);
 
     return {
       status: "available",
@@ -59,6 +75,14 @@ function noQuoteCapability(
     status: "no_quote_capability",
     reason: `Binance ${baseAsset}/${quoteAsset} unavailable: ${reason}`,
   };
+}
+
+function isUsablePrice(price: Decimal): boolean {
+  return price.isFinite() && price.greaterThan(0);
+}
+
+function unusablePrice(side: "bid" | "ask", price: Decimal): string {
+  return `no usable ${side} (got ${price.toString()})`;
 }
 
 /**

@@ -33,6 +33,7 @@ describe("QuoteRepository", () => {
       quantity: 10000,
       unitPrice: 314,
       totalPrice: 3144,
+      createdAt: new Date(),
       expiresAt: new Date(Date.now() + 10_000),
       ...overrides,
     };
@@ -53,6 +54,22 @@ describe("QuoteRepository", () => {
         confirmedAt: null,
       }),
     );
+  });
+
+  it("stores created_at as the given ISO UTC instant rather than SQLite's datetime('now')", () => {
+    const createdAt = new Date("2026-09-12T10:00:00.000Z");
+    const expiresAt = new Date("2026-09-12T10:00:10.000Z");
+
+    const created = repository.create(newQuote({ createdAt, expiresAt }));
+
+    const row = db
+      .prepare("SELECT created_at, expires_at FROM quotes WHERE id = ?")
+      .get(created.id) as { created_at: string; expires_at: string };
+    expect(row).toEqual({
+      created_at: "2026-09-12T10:00:00.000Z",
+      expires_at: "2026-09-12T10:00:10.000Z",
+    });
+    expect(created.createdAt.getTime()).toBe(createdAt.getTime());
   });
 
   it("returns null when a quote id does not exist", () => {

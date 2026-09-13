@@ -19,6 +19,11 @@ export interface NewQuote {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  /**
+   * Written explicitly rather than left to the column's `datetime('now')` default, whose
+   * `YYYY-MM-DD HH:MM:SS` form has no timezone designator and would parse as local time.
+   */
+  createdAt: Date;
   expiresAt: Date;
 }
 
@@ -44,8 +49,8 @@ export class QuoteRepository {
   create(newQuote: NewQuote): Quote {
     const info = this.db
       .prepare(
-        `INSERT INTO quotes (user_id, destination_currency, quantity, unit_price, total_price, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO quotes (user_id, destination_currency, quantity, unit_price, total_price, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         newQuote.userId,
@@ -53,6 +58,7 @@ export class QuoteRepository {
         newQuote.quantity,
         newQuote.unitPrice,
         newQuote.totalPrice,
+        newQuote.createdAt.toISOString(),
         newQuote.expiresAt.toISOString(),
       );
 

@@ -147,6 +147,42 @@ describe("MarketDataService", () => {
     });
   });
 
+  describe("zero prices", () => {
+    it("reports no quote capability when Binance's USDT/BRL ask is zero", async () => {
+      const binance = new FakeBinanceClient({ "USDT/BRL": fakePrice("0", "0") });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("MXN");
+
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason: "Binance USDT/BRL unavailable: no usable ask (got 0)",
+      });
+    });
+
+    it("reports no quote capability when Binance's destination bid is zero", async () => {
+      const binance = new FakeBinanceClient({ "USDT/MXN": fakePrice("0", "18.30") });
+      const okx = new FakeOkxClient();
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("MXN");
+
+      expect(result).toEqual({
+        status: "no_quote_capability",
+        reason: "Binance USDT/MXN unavailable: no usable bid (got 0)",
+      });
+    });
+
+    it("falls back to Binance when OKX's ask is zero, rather than taking it as the cheapest", async () => {
+      const binance = new FakeBinanceClient();
+      const okx = new FakeOkxClient(fakePrice("0", "0"));
+
+      const result = await new MarketDataService(binance, okx).getComposedPrice("MXN");
+
+      expect(result).toMatchObject({ status: "available", usdtBrlSource: "binance" });
+      expect(result.status === "available" && result.usdtBrlAsk.toString()).toBe(BINANCE_BRL_ASK);
+    });
+  });
+
   describe("client failures never escape as exceptions", () => {
     it("treats a throwing OKX client as an unavailable OKX", async () => {
       const binance = new FakeBinanceClient();

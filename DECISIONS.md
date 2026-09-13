@@ -203,3 +203,21 @@ users.spread = integer, left unaltered
 
 Added the pricing module: ask over bid, spread on top of that composed rate, rate times quantity, ceiling applied once
 at the end on the total.
+
+Quotes are valid for 10 seconds, so timestamps have to be unambiguous. SQLite's `datetime('now')` default gives
+`YYYY-MM-DD HH:MM:SS` with no timezone, and JavaScript reads that as local time, which would shift the window by the
+server's UTC offset. So `created_at` is still a TEXT column, but the application writes it from its own clock as an ISO
+8601 UTC string, the same format as `expires_at`. Both come from a single clock reading, so the window is exactly 10_000ms.
+Expiry is decided by `expires_at` alone. A quote is still valid at exactly `expires_at` and expired one millisecond later.
+
+-- TODO: I've researched more about this and that's not quite what 0 would mean
+Exchanges can report a price of zero, which means an empty side of the order book, not a free currency. The clients only
+reject negative prices, so the market data service now treats a zero or non-finite price as unusable. For Binance (the
+USDT/BRL ask or the destination bid) that means no quote capability. For OKX it means OKX is unavailable, so we fall back
+to Binance instead of treating zero as the cheapest ask. This touches availability logic from Epic 3, but it's the only
+place the OKX fallback can be handled correctly.
+
+-- TODO: I'll impose a limit based on the integer representation
+A quantity must be a positive whole number of minor units, but even a valid one can produce a total too large to store as
+an exact integer. I didn't want to invent a maximum order size the challenge doesn't ask for, so a quote whose total
+overflows is rejected as an invalid quantity rather than crashing the request.
