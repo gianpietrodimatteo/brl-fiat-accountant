@@ -4,6 +4,8 @@ import {
   ceilToCentavos,
   ceilToUnitPriceSubUnits,
   destinationUnitsFromMinorUnits,
+  ExactFraction,
+  maxMinorUnitsWithinCentavos,
   spreadMultiplierFromBasisPoints,
 } from "./money";
 
@@ -40,28 +42,57 @@ export interface QuotePricing {
  *
  * Rounding happens exactly once, on the total. Ceiling the per-unit rate first and multiplying
  * afterwards would turn the reference check's R$31.44 into R$32.00, so `unitPrice` is a record
- * of the rate only and is never used to derive `totalPrice`.
+ * of the rate only and is never used to derive `totalPrice`. The chain up to that ceiling is an
+ * `ExactFraction`, so no intermediate step rounds either.
+ *
+ * Throws a `RangeError` if the total does not fit `quotes.total_price`; callers check the
+ * quantity against `maxQuantityMinorUnits` first.
  */
 export function priceQuote({
   composedPrice,
   quantityMinorUnits,
   spreadBasisPoints,
 }: QuotePricingInput): QuotePricing {
-  const { usdtBrlAsk, usdtDestinationBid } = composedPrice;
-  assertPositivePrice(usdtBrlAsk, "USDT/BRL ask");
-  assertPositivePrice(usdtDestinationBid, `USDT/${composedPrice.destinationCurrency} bid`);
-
-  const spreadMultiplier = spreadMultiplierFromBasisPoints(spreadBasisPoints);
-  const brlPerDestinationUnit = usdtBrlAsk.dividedBy(usdtDestinationBid).times(spreadMultiplier);
-
-  const quantityUnits = destinationUnitsFromMinorUnits(quantityMinorUnits);
-  // One minor unit expressed in whole destination units — 0.01 for every supported currency.
-  const oneMinorUnit = destinationUnitsFromMinorUnits(1);
+  const brlPerDestinationUnit = brlPerDestinationUnitFor(composedPrice, spreadBasisPoints);
+  const quantityUnits = ExactFraction.of(destinationUnitsFromMinorUnits(quantityMinorUnits));
 
   return {
-    unitPrice: ceilToUnitPriceSubUnits(brlPerDestinationUnit.times(oneMinorUnit)),
+    unitPrice: ceilToUnitPriceSubUnits(brlPerDestinationUnit.times(oneMinorUnit())),
     totalPrice: ceilToCentavos(brlPerDestinationUnit.times(quantityUnits)),
   };
+}
+
+/**
+ * The largest quantity, in destination minor units, that `priceQuote` can price at these legs
+ * and this spread without the total leaving the exact integer range.
+ *
+ * The bound follows the rate: a centavo-cheap currency is capped by what `quotes.quantity` can
+ * hold, an expensive one by what `quotes.total_price` can. Throws a `RangeError` when the rate is
+ * so extreme that not even one minor unit fits.
+ */
+export function maxQuantityMinorUnits({
+  composedPrice,
+  spreadBasisPoints,
+}: Omit<QuotePricingInput, "quantityMinorUnits">): number {
+  const brlPerDestinationUnit = brlPerDestinationUnitFor(composedPrice, spreadBasisPoints);
+  return maxMinorUnitsWithinCentavos(brlPerDestinationUnit.times(oneMinorUnit()));
+}
+
+function brlPerDestinationUnitFor(
+  { usdtBrlAsk, usdtDestinationBid, destinationCurrency }: ComposedPrice,
+  spreadBasisPoints: number,
+): ExactFraction {
+  assertPositivePrice(usdtBrlAsk, "USDT/BRL ask");
+  assertPositivePrice(usdtDestinationBid, `USDT/${destinationCurrency} bid`);
+
+  return ExactFraction.of(usdtBrlAsk)
+    .dividedBy(ExactFraction.of(usdtDestinationBid))
+    .times(ExactFraction.of(spreadMultiplierFromBasisPoints(spreadBasisPoints)));
+}
+
+/** One minor unit expressed in whole destination units — 0.01 for every supported currency. */
+function oneMinorUnit(): ExactFraction {
+  return ExactFraction.of(destinationUnitsFromMinorUnits(1));
 }
 
 function assertPositivePrice(price: Decimal, legName: string): void {

@@ -1,4 +1,5 @@
-import { priceQuote, type QuotePricing } from "../domain/pricing";
+import { MAX_EXACT_COUNT } from "../domain/money";
+import { maxQuantityMinorUnits, priceQuote, type QuotePricing } from "../domain/pricing";
 import { expiresAtFrom } from "../domain/quoteLifecycle";
 import type { Quote } from "../domain/Quote";
 import type { QuoteRepository } from "../repositories/QuoteRepository";
@@ -26,6 +27,11 @@ export type CreateQuoteResult =
   | { status: "unknown_user" }
   | { status: "unsupported_currency" }
   | { status: "invalid_quantity" }
+  /**
+   * A well-formed quantity too large to store exactly. `maxQuantity` is the largest one that
+   * would have been quoted, in the same minor units as the request.
+   */
+  | { status: "quantity_too_large"; maxQuantity: number }
   | { status: "no_quote_capability"; reason: string };
 
 /**
@@ -55,8 +61,11 @@ export class QuoteService {
     quantity,
   }: CreateQuoteInput): Promise<CreateQuoteResult> {
     // Cheapest checks first, so a bad request never costs a database read or an exchange lookup.
-    if (!isQuotableQuantity(quantity)) {
+    if (!isWellFormedQuantity(quantity)) {
       return { status: "invalid_quantity" };
+    }
+    if (quantity > MAX_EXACT_COUNT) {
+      return { status: "quantity_too_large", maxQuantity: MAX_EXACT_COUNT };
     }
 
     const user = this.userRepository.findById(userId);
@@ -77,20 +86,27 @@ export class QuoteService {
       return { status: "no_quote_capability", reason: composedPrice.reason };
     }
 
+    // Spread is per-user: a quote only ever carries the spread of the user who asked for it.
+    const pricingInput = {
+      composedPrice,
+      quantityMinorUnits: quantity,
+      spreadBasisPoints: user.spreadBasisPoints,
+    };
+
     let pricing: QuotePricing;
     try {
-      pricing = priceQuote({
-        composedPrice,
-        quantityMinorUnits: quantity,
-        // Spread is per-user: a quote only ever carries the spread of the user who asked for it.
-        spreadBasisPoints: user.spreadBasisPoints,
-      });
+      // How much fits depends on the rate, so this bound can only be checked once it is known.
+      const maxQuantity = maxQuantityMinorUnits(pricingInput);
+      if (quantity > maxQuantity) {
+        return { status: "quantity_too_large", maxQuantity };
+      }
+      pricing = priceQuote(pricingInput);
     } catch (error) {
-      // MarketDataService only hands over positive prices and the quantity is already a safe
-      // integer, so the RangeError left is a total too large for the exact integer money
-      // columns — a request no one can be quoted for, not a server fault.
+      // MarketDataService only hands over positive prices and the quantity is already within the
+      // bound above, so the RangeError left is a rate so extreme that its own per-unit figure
+      // cannot be stored — a price nothing can be quoted from, not a fault in the request.
       if (error instanceof RangeError) {
-        return { status: "invalid_quantity" };
+        return { status: "no_quote_capability", reason: error.message };
       }
       throw error;
     }
@@ -116,9 +132,9 @@ export class QuoteService {
 
 /**
  * A quantity is a count of the destination currency's minor units, so anything fractional or
- * non-positive is a malformed request rather than a cheap or empty order. The safe-integer
- * bound keeps the exact-integer arithmetic downstream exact.
+ * non-positive is a malformed request rather than a cheap or empty order. Size is a separate
+ * question with its own result: a huge whole number is well-formed, just not quotable.
  */
-function isQuotableQuantity(quantity: number): boolean {
-  return Number.isSafeInteger(quantity) && quantity > 0;
+function isWellFormedQuantity(quantity: number): boolean {
+  return Number.isInteger(quantity) && quantity > 0;
 }

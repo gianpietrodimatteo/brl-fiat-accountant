@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
 import type { ComposedPrice } from "./ComposedPrice";
-import { ceilToCentavos, spreadMultiplierFromBasisPoints } from "./money";
-import { priceQuote } from "./pricing";
+import { ceilToCentavos, MAX_EXACT_COUNT, spreadMultiplierFromBasisPoints } from "./money";
+import { maxQuantityMinorUnits, priceQuote } from "./pricing";
 
 // The whole point of this unit is that it is pure, so every test here builds its inputs by hand.
 // Nothing below opens a database, constructs an exchange client or reads a clock.
@@ -113,6 +113,29 @@ describe("priceQuote", () => {
     expect(pricing.totalPrice).toBe(11000);
   });
 
+  it("does not overcharge a total that is exactly a whole centavo after a non-terminating division", () => {
+    // 5.00 / 18.7 × 1.01 × 11.22 is exactly R$3.03; rounding the division first charged R$3.04.
+    const pricing = priceQuote({
+      composedPrice: composedPrice("5.00", "18.7"),
+      quantityMinorUnits: 1122,
+      spreadBasisPoints: 100,
+    });
+
+    expect(pricing.totalPrice).toBe(303);
+  });
+
+  it("does not undercharge a total that lies just past a whole centavo", () => {
+    // The exact total is a sliver above R$1,399,024.41; rounding the division first lost the
+    // sliver and ceilinged to that figure instead of the next centavo.
+    const pricing = priceQuote({
+      composedPrice: composedPrice("5.00", "3920.12345678"),
+      quantityMinorUnits: 109032771496,
+      spreadBasisPoints: 60,
+    });
+
+    expect(pricing.totalPrice).toBe(139902442);
+  });
+
   it("scales with the quantity rather than assuming the reference 100 units", () => {
     const legs = composedPrice("5.00", "16.00");
 
@@ -148,6 +171,39 @@ describe("priceQuote", () => {
       priceQuote({
         composedPrice: composedPrice("5.00", "16.00"),
         quantityMinorUnits: 100.5,
+        spreadBasisPoints: 60,
+      }),
+    ).toThrow(RangeError);
+  });
+});
+
+describe("maxQuantityMinorUnits", () => {
+  it("bounds an expensive currency by what the total can hold, exactly at the edge", () => {
+    // 5.00 / 0.90 × 1.006 BRL per unit is ~5.59 centavos per minor unit, so the total runs out of
+    // exact integers well before the quantity does.
+    const input = { composedPrice: composedPrice("5.00", "0.90"), spreadBasisPoints: 60 };
+
+    const max = maxQuantityMinorUnits(input);
+
+    expect(max).toBe(1611626109198189);
+    expect(priceQuote({ ...input, quantityMinorUnits: max }).totalPrice).toBe(9007199254740990);
+    expect(() => priceQuote({ ...input, quantityMinorUnits: max + 1 })).toThrow(RangeError);
+  });
+
+  it("bounds a centavo-cheap currency by what the quantity can hold", () => {
+    // At ~0.005 BRL per unit the total stays far smaller than the quantity.
+    expect(
+      maxQuantityMinorUnits({
+        composedPrice: composedPrice("5.00", "1010.00"),
+        spreadBasisPoints: 60,
+      }),
+    ).toBe(MAX_EXACT_COUNT);
+  });
+
+  it("rejects a rate at which not even one minor unit could be stored", () => {
+    expect(() =>
+      maxQuantityMinorUnits({
+        composedPrice: composedPrice("5.00", "0.000000000000000001"),
         spreadBasisPoints: 60,
       }),
     ).toThrow(RangeError);

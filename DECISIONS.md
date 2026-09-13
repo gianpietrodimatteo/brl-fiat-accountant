@@ -207,17 +207,28 @@ at the end on the total.
 Quotes are valid for 10 seconds, so timestamps have to be unambiguous. SQLite's `datetime('now')` default gives
 `YYYY-MM-DD HH:MM:SS` with no timezone, and JavaScript reads that as local time, which would shift the window by the
 server's UTC offset. So `created_at` is still a TEXT column, but the application writes it from its own clock as an ISO
-8601 UTC string, the same format as `expires_at`. Both come from a single clock reading, so the window is exactly 10_000ms.
-Expiry is decided by `expires_at` alone. A quote is still valid at exactly `expires_at` and expired one millisecond later.
+8601 UTC string, the same format as `expires_at`. Both come from a single clock reading, so the window is exactly
+10_000ms. Expiry is decided by `expires_at` alone. A quote is still valid at exactly `expires_at` and expired one
+millisecond later.
 
 -- TODO: I've researched more about this and that's not quite what 0 would mean
 Exchanges can report a price of zero, which means an empty side of the order book, not a free currency. The clients only
 reject negative prices, so the market data service now treats a zero or non-finite price as unusable. For Binance (the
-USDT/BRL ask or the destination bid) that means no quote capability. For OKX it means OKX is unavailable, so we fall back
+USDT/BRL ask or the destination bid) that means no quote capability. For OKX it means OKX is unavailable, so we fall
+back
 to Binance instead of treating zero as the cheapest ask. This touches availability logic from Epic 3, but it's the only
 place the OKX fallback can be handled correctly.
 
--- TODO: I'll impose a limit based on the integer representation
-A quantity must be a positive whole number of minor units, but even a valid one can produce a total too large to store as
-an exact integer. I didn't want to invent a maximum order size the challenge doesn't ask for, so a quote whose total
-overflows is rejected as an invalid quantity rather than crashing the request.
+I've researched what would be our true bottleneck regarding our number representations because I want to impose a
+ceiling to a quote's quantity or total_price. The integer bottleneck is not SQLite (INTEGER goes to 2^63−1) but
+JavaScript: better-sqlite3 reads INTEGER columns back as number, and so does any client parsing our JSON, which is exact
+only up to 2^53−1 (Number.MAX_SAFE_INTEGER). Past that, values come back silently altered. So both quotes.quantity and
+quotes.total_price are capped at 2^53−1. The quantity cap is checked before any lookup. The total cap depends on the
+rate, so it's checked once the composed price is known, and the rejection returns the largest quantity that fits at that
+rate. Both return a dedicated quantity_too_large result, separate from invalid_quantity, which stays for malformed
+input.
+
+While doing this I found that decimal.js rounds every operation to 20 significant digits, half-up. Rounding the ask/bid
+division before the final ceiling could over- or undercharge by a centavo, even on small totals (R$3.03 computed as R$
+3.04). More precision doesn't fix it, because any rounding before the final ceiling has the same problem. Pricing now
+keeps the chain as an exact fraction of integers and rounds exactly once, at the ceiling.

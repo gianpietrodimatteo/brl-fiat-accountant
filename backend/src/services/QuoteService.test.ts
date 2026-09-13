@@ -216,7 +216,15 @@ describe("QuoteService", () => {
     it("rejects a non-positive or fractional quantity, writing no row", async () => {
       const service = buildService();
 
-      for (const quantity of [0, -1, -10_000, 1.5, 10_000.5, Number.NaN]) {
+      for (const quantity of [
+        0,
+        -1,
+        -10_000,
+        1.5,
+        10_000.5,
+        Number.NaN,
+        Number.POSITIVE_INFINITY,
+      ]) {
         const result = await service.createQuote({
           userId: userId("bob"),
           destinationCurrency: "MXN",
@@ -229,15 +237,91 @@ describe("QuoteService", () => {
       expect(quoteRowCount()).toBe(0);
     });
 
-    it("rejects a quantity whose total exceeds the exact integer range, writing no row", async () => {
-      // At the EUR standing bid of 0.91 this total is ~5e16 centavos, past Number.MAX_SAFE_INTEGER.
-      const result = await buildService().createQuote({
-        userId: userId("bob"),
-        destinationCurrency: "EUR",
-        quantity: Number.MAX_SAFE_INTEGER,
+    it("rejects a quantity past what quotes.quantity can hold exactly, before any lookup", async () => {
+      const service = buildService();
+
+      for (const quantity of [2 ** 53, 1e20]) {
+        // An unknown user and an unsupported currency would each be rejected, so getting this
+        // result shows the bound is checked before either lookup.
+        const result = await service.createQuote({
+          userId: 9999,
+          destinationCurrency: "",
+          quantity,
+        });
+
+        expect(result).toEqual({
+          status: "quantity_too_large",
+          maxQuantity: Number.MAX_SAFE_INTEGER,
+        });
+      }
+
+      expect(quoteRowCount()).toBe(0);
+    });
+
+    describe("a total past the exact integer range", () => {
+      // 5.00 / 0.90 × bob's 1.006 is ~5.59 centavos per EUR cent, so the total, not the quantity,
+      // is what runs out of exact integers first. The bound is floor((2^53 − 1) / that rate).
+      const EXPENSIVE_EUR_PRICES = {
+        ...REFERENCE_BINANCE_PRICES,
+        ...fakePrices({ "USDT/EUR": { bid: "0.90", ask: "0.91" } }),
+      };
+      const MAX_EUR_QUANTITY_FOR_BOB = 1_611_626_109_198_189;
+
+      it("is rejected with the largest quantity that would fit, writing no row", async () => {
+        const service = buildService({ binancePrices: EXPENSIVE_EUR_PRICES });
+
+        for (const quantity of [MAX_EUR_QUANTITY_FOR_BOB + 1, Number.MAX_SAFE_INTEGER]) {
+          const result = await service.createQuote({
+            userId: userId("bob"),
+            destinationCurrency: "EUR",
+            quantity,
+          });
+
+          expect(result).toEqual({
+            status: "quantity_too_large",
+            maxQuantity: MAX_EUR_QUANTITY_FOR_BOB,
+          });
+        }
+
+        expect(quoteRowCount()).toBe(0);
       });
 
-      expect(result).toEqual({ status: "invalid_quantity" });
+      it("is quotable right at that maximum, and the total survives the database exactly", async () => {
+        const quote = created(
+          await buildService({ binancePrices: EXPENSIVE_EUR_PRICES }).createQuote({
+            userId: userId("bob"),
+            destinationCurrency: "EUR",
+            quantity: MAX_EUR_QUANTITY_FOR_BOB,
+          }),
+        );
+
+        expect(quote.totalPrice).toBe(9_007_199_254_740_990);
+        expect(quoteRepository.findById(quote.id)).toEqual(
+          expect.objectContaining({
+            quantity: MAX_EUR_QUANTITY_FOR_BOB,
+            totalPrice: 9_007_199_254_740_990,
+          }),
+        );
+      });
+    });
+
+    it("reports no quote capability when the rate itself is too extreme to store", async () => {
+      // ~5e10 BRL per MXN puts one cent's unit_price past the exact integer range, whatever the
+      // quantity — a price nothing can be quoted from rather than a problem with the request.
+      const service = buildService({
+        binancePrices: fakePrices({
+          "USDT/BRL": { bid: "4.98", ask: "5.00" },
+          "USDT/MXN": { bid: "0.0000000001", ask: "16.10" },
+        }),
+      });
+
+      const result = await service.createQuote({
+        userId: userId("bob"),
+        destinationCurrency: "MXN",
+        quantity: ONE_HUNDRED_MXN,
+      });
+
+      expect(result.status).toBe("no_quote_capability");
       expect(quoteRowCount()).toBe(0);
     });
 
