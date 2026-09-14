@@ -283,4 +283,5 @@ The user types the quantity in currency units with up to 2 decimals ("100.50"), 
 parsing the string, never with floats. Unit price is shown per one destination currency unit with every digit and no
 rounding: 314375 displays as R$ 0.314375.
 
-Token is kept in sesionStorage. There is no logout button: closing the tab ends the session.
+Token is kept in sesionStorage. There is no logout button: closing the tab ends the session. Reloading the tab does not
+though.
