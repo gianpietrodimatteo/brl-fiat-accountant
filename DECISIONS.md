@@ -274,3 +274,13 @@ I rejected decimal strings ("31.44"). They would mean converting from integers t
 again on the client, with a rounding risk each time.
 
 About the quote history, "newest first" means most recently confirmed first, which is how listHistory already orders.
+
+# 6 - Frontend application
+
+Vitest + React Testing Library with jsdom.
+
+The user types the quantity in currency units with up to 2 decimals ("100.50"), and I convert it to minor units by
+parsing the string, never with floats. Unit price is shown per one destination currency unit with every digit and no
+rounding: 314375 displays as R$ 0.314375.
+
+Token is kept in sesionStorage. There is no logout button: closing the tab ends the session.
