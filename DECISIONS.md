@@ -85,6 +85,7 @@ use decimal.js on the application layer. If this project were about doing crypto
 the values as string, for we may have overflow problems in saving the numbers. However, for this specific project, we're
 cool with saving the numbers on the database, and benefiting from doing mathematical operations directly on the database
 whenever needed.
+obs: view observation paragraph on epic 4
 
 I know some currencies use different decimal places. However, EUR, ARS, COP, MXN, ZAR are all ISO 4217 currencies with 2
 decimal places (COP is sometimes quoted without decimals in everyday use, but officially it's 2)
@@ -226,6 +227,8 @@ rate, so it's checked once the composed price is known, and the rejection return
 rate. Both return a dedicated quantity_too_large result, separate from invalid_quantity, which stays for malformed
 input.
 
+Obs: Back in Epic 2 I wrote that SQLite saves integers as 64-bit unsigned integers. That was wrong. SQLite's INTEGER is a signed 64-bit integer, so it goes from −2^63 to 2^63−1. It uses fewer bytes for small values, but the range is the same. I only found this out while looking for our real bottleneck for the caps above. It doesn't change the Epic 2 decision: we still store money as integers, and we never store a negative amount, so the missing sign bit costs us nothing. It also doesn't matter much in practice, because the JavaScript side is the real limit at 2^53−1, far below what SQLite can hold.
+
 While doing this I found that decimal.js rounds every operation to 20 significant digits, half-up. Rounding the ask/bid
 division before the final ceiling could over- or undercharge by a centavo, even on small totals (R$3.03 computed as R$
 3.04). More precision doesn't fix it, because any rounding before the final ceiling has the same problem. Pricing now
@@ -285,3 +288,8 @@ rounding: 314375 displays as R$ 0.314375.
 
 Token is kept in sesionStorage. There is no logout button: closing the tab ends the session. Reloading the tab does not
 though.
+
+# 7 - Documentation and Delivery
+
+e2e testing will only be applied to simulated mode. Testing live api integration is done manually.
+
