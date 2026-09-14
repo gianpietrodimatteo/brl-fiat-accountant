@@ -17,18 +17,64 @@ npm install
 
 ## Scripts
 
-| Script                 | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| `npm run dev`          | Runs the server with `tsx watch` (auto-restarts on change) |
-| `npm run build`        | Type-checks and compiles to `dist/` via `tsc`              |
-| `npm start`            | Runs the compiled server (`node dist/index.js`)            |
-| `npm run lint`         | ESLint                                                     |
-| `npm run format`       | Prettier, writes fixes                                     |
-| `npm run format:check` | Prettier, check only                                       |
-| `npm run migrate`      | Applies any pending SQLite migrations                      |
-| `npm run seed`         | Seeds users and supported currencies                       |
-| `npm test`             | Runs the Vitest suite once                                 |
-| `npm run test:watch`   | Runs Vitest in watch mode                                  |
+| Script                 | Description                                                 |
+| ---------------------- | ----------------------------------------------------------- |
+| `npm run dev`          | Runs the server with `tsx watch` (auto-restarts on change)  |
+| `npm run build`        | Type-checks and compiles to `dist/` via `tsc`               |
+| `npm start`            | Runs the compiled server (`node dist/index.js`)             |
+| `npm run lint`         | ESLint                                                      |
+| `npm run format`       | Prettier, writes fixes                                      |
+| `npm run format:check` | Prettier, check only                                        |
+| `npm run migrate`      | Applies any pending SQLite migrations (also run on startup) |
+| `npm run seed`         | Seeds users and supported currencies (also run on startup)  |
+| `npm test`             | Runs the Vitest suite once                                  |
+| `npm run test:watch`   | Runs Vitest in watch mode                                   |
+
+## Running the server
+
+`npm run dev` (or `npm start` after a build, or the Docker image) starts a Fastify HTTP server.
+On startup it:
+
+1. opens the SQLite database (see [Database](#database))
+2. applies any pending migrations, then seeds the pre-defined users and supported currencies —
+   both idempotent, so no manual `npm run migrate` / `npm run seed` is needed and restarting
+   against the same file adds no duplicate rows
+3. opens the OKX price feed (live mode only; see [Simulated Mode](#simulated-mode))
+4. listens on `PORT`
+
+`SIGINT`/`SIGTERM` shut it down gracefully: the HTTP server closes, the OKX feed stops and the
+database is closed before the process exits with code `0`.
+
+### Configuration
+
+| Variable         | Default                 | Description                                                   |
+| ---------------- | ----------------------- | ------------------------------------------------------------- |
+| `PORT`           | `3001`                  | Port the server listens on (all interfaces)                   |
+| `CORS_ORIGIN`    | `http://localhost:3000` | The one browser origin (the frontend) allowed to call the API |
+| `SQLITE_DB_PATH` | `data/app.db`           | SQLite database file (see [Location](#location))              |
+| `EXCHANGE_MODE`  | `live`                  | `live` or `simulated` (see [Simulated Mode](#simulated-mode)) |
+
+CORS answers only `CORS_ORIGIN`, and allows it to send the `Authorization` and `Content-Type`
+headers.
+
+### Error responses
+
+Every non-2xx response has the same body:
+
+```json
+{ "error": { "code": "validation_error", "message": "body/quantity must be integer" } }
+```
+
+`code` is a stable snake_case value for clients to branch on; `message` is for humans. The
+shared codes are `validation_error` (`400`, the request failed its JSON schema), `not_found`
+(`404`, unknown route) and `internal_error` (`500`, which never includes the internal error's
+message or a stack trace). Other request errors Fastify raises itself keep their status and
+take a code from it, e.g. `bad_request` (malformed JSON), `unsupported_media_type` or
+`payload_too_large`.
+
+JSON request bodies are validated without type coercion: `"10000"` sent for an integer field is
+rejected, not turned into `10000`. Route params and query strings, which only ever arrive as
+text, are still coerced to the types their schema declares.
 
 ## Simulated Mode
 
@@ -72,13 +118,14 @@ The database is a single file. Its path is controlled by the `SQLITE_DB_PATH` en
 - Running in Docker: set to `/data/app.db` inside the container by `docker-compose.yml`,
   which lives on the named volume `sqlite-data` (not a host bind mount).
 - Vitest tests don't touch this file at all — they run against an in-memory database
-  (`:memory:`) created fresh per test file.
+  (`:memory:`) created fresh per test file, or a throwaway file in the OS temp directory when
+  a test needs to reopen the same database.
 
 ### Migrations
 
 Migrations are plain SQL, one file per migration under `src/db/migrations/`, applied in
-order and tracked in an internal `_migrations` table so re-running is a no-op. Apply any
-pending migrations with:
+order and tracked in an internal `_migrations` table so re-running is a no-op. The server
+applies pending migrations itself on every startup; to apply them without starting it, run:
 
 ```bash
 npm run migrate
@@ -95,7 +142,9 @@ npm run seed
 ```
 
 Inserts the pre-defined users (`alice`, `bob`, `carol`) and supported currencies. Safe to
-re-run — existing rows are left alone (`INSERT OR IGNORE`).
+re-run — existing rows are left alone (`INSERT OR IGNORE`). The server runs the seed itself on
+every startup, right after migrations, so this script is only needed to seed without starting
+it.
 
 ### Inspecting the database
 

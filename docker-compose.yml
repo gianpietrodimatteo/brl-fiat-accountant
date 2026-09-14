@@ -8,6 +8,7 @@ services:
       PORT: ${BACKEND_PORT:-3001}
       SQLITE_DB_PATH: ${SQLITE_DB_PATH:-/data/app.db}
       EXCHANGE_MODE: ${EXCHANGE_MODE:-live}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     volumes:
       - sqlite-data:/data
     restart: unless-stopped
