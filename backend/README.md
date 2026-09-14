@@ -73,8 +73,36 @@ take a code from it, e.g. `bad_request` (malformed JSON), `unsupported_media_typ
 `payload_too_large`.
 
 JSON request bodies are validated without type coercion: `"10000"` sent for an integer field is
-rejected, not turned into `10000`. Route params and query strings, which only ever arrive as
-text, are still coerced to the types their schema declares.
+rejected, not turned into `10000`. A property the schema doesn't allow is rejected too, not
+silently dropped. Route params and query strings, which only ever arrive as text, are still
+coerced to the types their schema declares.
+
+### Authentication
+
+Login is by username only. There is no password, registration, recovery, logout or session
+expiry, by design.
+
+```
+POST /api/login
+{ "username": "alice" }
+```
+
+- `200` → `{ "token": "…", "user": { "username": "alice" } }`. Every login creates a new
+  session, so logging in twice gives two tokens that both keep working.
+- `401 invalid_username` for a username that isn't seeded.
+- `400 validation_error` if `username` is missing, empty, not a string, or sent alongside any
+  other property.
+
+Protected routes expect the token in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+A missing header, another scheme, an empty token or an unknown token is answered with
+`401 unauthorized`, before the request body is validated. In code, a route opts in with
+`onRequest: authenticate` (`src/http/authentication.ts`) and then reads the caller from
+`request.user`.
 
 ## Simulated Mode
 

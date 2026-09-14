@@ -188,6 +188,31 @@ describe("buildApp", () => {
       expect(response.json()).toMatchObject({ error: { code: "validation_error" } });
     });
 
+    it("rejects a property forbidden by additionalProperties instead of stripping it", async () => {
+      app.post(
+        "/test/closed",
+        {
+          schema: {
+            body: {
+              type: "object",
+              properties: { quantity: { type: "integer" } },
+              additionalProperties: false,
+            },
+          },
+        },
+        async (request) => request.body,
+      );
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/test/closed",
+        payload: { quantity: 1, extra: true },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ error: { code: "validation_error" } });
+    });
+
     it("still reads integer route params, which only ever arrive as strings", async () => {
       app.get(
         "/test/items/:id",

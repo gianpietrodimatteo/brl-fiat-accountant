@@ -6,7 +6,9 @@ import {
   type ServiceDependencies,
   type Services,
 } from "../services/createServices";
+import { registerAuthentication } from "./authentication";
 import { registerErrorHandling } from "./errors";
+import { registerLoginRoute } from "./login";
 
 export const DEFAULT_CORS_ORIGIN = "http://localhost:3000";
 
@@ -41,6 +43,7 @@ export function buildApp({
   app.decorate("services", createServices(serviceDependencies));
 
   registerErrorHandling(app);
+  registerAuthentication(app);
 
   // An array, not a string: @fastify/cors echoes a string origin to every caller, while an
   // array only answers the origins in it.
@@ -48,6 +51,8 @@ export function buildApp({
     origin: [corsOrigin],
     allowedHeaders: ["Authorization", "Content-Type"],
   });
+
+  registerLoginRoute(app);
 
   return app;
 }
@@ -57,8 +62,10 @@ type RouteValidatorCompiler = FastifySchemaCompiler<unknown>;
 const buildValidatorFromPool = AjvCompiler();
 
 /**
- * Fastify's own Ajv setup, with one change: JSON bodies are validated without type coercion, so a
- * `"10000"` sent for an integer field is rejected rather than quietly turned into `10000`.
+ * Fastify's own Ajv setup, with two changes for JSON bodies: no type coercion, so a `"10000"` sent
+ * for an integer field is rejected rather than quietly turned into `10000`; and no stripping of
+ * properties a schema forbids with `additionalProperties: false`, so they are rejected rather than
+ * quietly dropped.
  *
  * Route params and querystrings keep Fastify's default coercion. They only ever arrive as
  * strings, so an `:id` declared as an integer could never validate without it.
@@ -75,7 +82,7 @@ const buildBodyStrictValidator = ((
   ) as unknown as RouteValidatorCompiler;
   const strict = buildValidatorFromPool(externalSchemas, {
     ...options,
-    customOptions: { ...options.customOptions, coerceTypes: false },
+    customOptions: { ...options.customOptions, coerceTypes: false, removeAdditional: false },
   }) as unknown as RouteValidatorCompiler;
 
   const compileForRoute: RouteValidatorCompiler = (route) =>
