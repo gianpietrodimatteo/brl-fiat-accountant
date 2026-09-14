@@ -101,6 +101,17 @@ export function brlFromCentavos(centavos: number): Decimal {
 }
 
 /**
+ * Reads exact decimal reais back into the centavo count they came from — the inverse of
+ * `brlFromCentavos`.
+ *
+ * This is not a rounding step: a value finer than a centavo was never a stored amount, so it is
+ * rejected rather than ceiled. Pricing's rounding lives in `ceilToCentavos` alone.
+ */
+export function centavosFromBrl(brl: Decimal): number {
+  return toExactCountFromScaled(brl, CENTAVOS_PER_BRL, "centavos");
+}
+
+/**
  * Rounds decimal reais to a centavo count for storage.
  *
  * [[business]] fixes the rule: exactly 2 decimal places, always ceiling. Never round-half and
@@ -130,6 +141,15 @@ export function maxMinorUnitsWithinCentavos(brlPerMinorUnit: ExactFraction): num
 export function brlFromUnitPriceSubUnits(subUnits: number): Decimal {
   assertMinorUnitCount(subUnits, "unit price sub-units");
   return new Decimal(subUnits).dividedBy(SUB_UNITS_PER_BRL);
+}
+
+/**
+ * Reads exact decimal reais back into the `quotes.unit_price` sub-unit count they came from —
+ * the inverse of `brlFromUnitPriceSubUnits`. A value finer than a sub-unit is rejected, not
+ * ceiled, for the same reason as `centavosFromBrl`.
+ */
+export function unitPriceSubUnitsFromBrl(brl: Decimal): number {
+  return toExactCountFromScaled(brl, SUB_UNITS_PER_BRL, "unit price sub-units");
 }
 
 /**
@@ -177,6 +197,16 @@ export function spreadMultiplierFromBasisPoints(basisPoints: number): Decimal {
 function scaleAndCeil(value: Decimal | ExactFraction, unitsPerBrl: Decimal): bigint {
   const exact = value instanceof ExactFraction ? value : ExactFraction.of(value);
   return exact.times(ExactFraction.of(unitsPerBrl)).ceil();
+}
+
+/** Scales `value` into a count, rejecting anything that doesn't land on a whole one. */
+function toExactCountFromScaled(value: Decimal, unitsPerBrl: Decimal, unitName: string): number {
+  const exact = ExactFraction.of(value).times(ExactFraction.of(unitsPerBrl));
+  const count = exact.floor();
+  if (count !== exact.ceil()) {
+    throw new RangeError(`${value.toString()} is finer than a whole count of ${unitName}`);
+  }
+  return toExactCount(count, unitName);
 }
 
 function assertMinorUnitCount(value: number, unitName: string): void {

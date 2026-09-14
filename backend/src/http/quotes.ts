@@ -1,6 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import {
+  centavosFromBrl,
+  destinationMinorUnitsFromUnits,
+  unitPriceSubUnitsFromBrl,
+} from "../domain/money";
 import type { Quote } from "../domain/Quote";
-import type { CreateQuoteResult } from "../services/QuoteService";
+import type { ConfirmQuoteResult, CreateQuoteResult, HistoryEntry } from "../services/QuoteService";
 import { authenticate } from "./authentication";
 import { errorResponse } from "./errors";
 
@@ -88,6 +93,118 @@ export function toQuoteResponse(quote: Quote): QuoteResponse {
   };
 }
 
+interface QuoteIdParams {
+  id: number;
+}
+
+/**
+ * Params arrive as text and are coerced to the declared type, so `abc`, `0`, `-3` and `1.5` all
+ * fail here with `validation_error`.
+ */
+export const quoteIdParamsSchema = {
+  type: "object",
+  required: ["id"],
+  properties: { id: { type: "integer", minimum: 1 } },
+} as const;
+
+/** A confirmed quote on the wire: `QuoteResponse` plus the instant it was confirmed. */
+export interface ConfirmedQuoteResponse extends QuoteResponse {
+  /** ISO 8601 UTC. */
+  confirmedAt: string;
+}
+
+const confirmedAtSchema = {
+  type: "string",
+  format: "date-time",
+  description: "ISO 8601 UTC",
+} as const;
+
+const confirmQuoteResponseSchema = {
+  type: "object",
+  required: ["quote"],
+  properties: {
+    quote: {
+      ...quoteResponseSchema,
+      required: [...quoteResponseSchema.required, "confirmedAt"],
+      properties: { ...quoteResponseSchema.properties, confirmedAt: confirmedAtSchema },
+    },
+  },
+} as const;
+
+/** A confirmed quote as history lists it, in the same units and field names as `QuoteResponse`. */
+export interface HistoryItem {
+  id: number;
+  destinationCurrency: string;
+  /** Integer destination-currency minor units. */
+  quantity: number;
+  /** Integer BRL sub-units at 10^8 per destination-currency minor unit. */
+  unitPrice: number;
+  /** Integer BRL centavos. */
+  totalPrice: number;
+  /** ISO 8601 UTC. */
+  createdAt: string;
+  /** ISO 8601 UTC. */
+  confirmedAt: string;
+}
+
+const quoteFields = quoteResponseSchema.properties;
+
+/** Only these fields are serialized, so history can never carry a total or anything else. */
+const historyResponseSchema = {
+  type: "object",
+  required: ["quotes"],
+  properties: {
+    quotes: {
+      type: "array",
+      items: {
+        type: "object",
+        required: [
+          "id",
+          "destinationCurrency",
+          "quantity",
+          "unitPrice",
+          "totalPrice",
+          "createdAt",
+          "confirmedAt",
+        ],
+        properties: {
+          id: quoteFields.id,
+          destinationCurrency: quoteFields.destinationCurrency,
+          quantity: quoteFields.quantity,
+          unitPrice: quoteFields.unitPrice,
+          totalPrice: quoteFields.totalPrice,
+          createdAt: quoteFields.createdAt,
+          confirmedAt: confirmedAtSchema,
+        },
+      },
+    },
+  },
+} as const;
+
+export function toConfirmedQuoteResponse(quote: Quote): ConfirmedQuoteResponse {
+  if (!quote.confirmedAt) {
+    throw new Error(`Quote ${quote.id} was reported confirmed without a confirmedAt`);
+  }
+  return { ...toQuoteResponse(quote), confirmedAt: quote.confirmedAt.toISOString() };
+}
+
+/**
+ * History's exact decimals read back into the integer counts they were stored as, through
+ * `money.ts`'s inverses: each rejects a value that isn't a whole count rather than rounding it,
+ * so what is sent is the stored column or nothing.
+ */
+export function toHistoryItem(entry: HistoryEntry): HistoryItem {
+  return {
+    id: entry.id,
+    destinationCurrency: entry.destinationCurrency,
+    quantity: destinationMinorUnitsFromUnits(entry.quantity),
+    unitPrice: unitPriceSubUnitsFromBrl(entry.unitPrice),
+    totalPrice: centavosFromBrl(entry.totalPrice),
+    createdAt: entry.createdAt.toISOString(),
+    confirmedAt: entry.confirmedAt.toISOString(),
+  };
+}
+
 export function registerQuoteRoutes(app: FastifyInstance): void {
   app.post<{ Body: CreateQuoteBody }>(
     "/api/quotes",
@@ -105,6 +222,53 @@ export function registerQuoteRoutes(app: FastifyInstance): void {
       return replyToCreateQuote(request, reply, result);
     },
   );
+
+  app.post<{ Params: QuoteIdParams }>(
+    "/api/quotes/:id/confirm",
+    {
+      onRequest: authenticate,
+      schema: { params: quoteIdParamsSchema, response: { 200: confirmQuoteResponseSchema } },
+    },
+    async (request, reply) => {
+      // Ownership, the exactly-once guard and expiry are all the service's single write: nothing
+      // is checked here first, so no check can go stale before it lands.
+      const result = app.services.quoteService.confirmQuote({
+        userId: request.user.id,
+        quoteId: request.params.id,
+      });
+      return replyToConfirmQuote(reply, result);
+    },
+  );
+
+  app.get(
+    "/api/quotes/history",
+    { onRequest: authenticate, schema: { response: { 200: historyResponseSchema } } },
+    async (request) => {
+      const history = app.services.quoteService.listHistory(request.user.id);
+      return { quotes: history.map(toHistoryItem) };
+    },
+  );
+}
+
+function replyToConfirmQuote(reply: FastifyReply, result: ConfirmQuoteResult): FastifyReply {
+  switch (result.status) {
+    case "confirmed":
+      return reply.status(200).send({ quote: toConfirmedQuoteResponse(result.quote) });
+    case "expired":
+      return reply.status(410).send(errorResponse("quote_expired", "The quote has expired"));
+    case "already_confirmed":
+      return reply
+        .status(409)
+        .send(errorResponse("quote_already_confirmed", "The quote is already confirmed"));
+    case "not_found":
+    case "not_owner":
+      // One response for both, so another user's quote ids can't be told apart from unused ones.
+      return reply.status(404).send(errorResponse("quote_not_found", "Quote not found"));
+    default: {
+      const unhandled: never = result;
+      throw new Error(`Unhandled confirm-quote result: ${JSON.stringify(unhandled)}`);
+    }
+  }
 }
 
 function replyToCreateQuote(

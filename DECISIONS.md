@@ -272,3 +272,5 @@ would fit.
 
 I rejected decimal strings ("31.44"). They would mean converting from integers to decimals on the way out and parsing
 again on the client, with a rounding risk each time.
+
+About the quote history, "newest first" means most recently confirmed first, which is how listHistory already orders.

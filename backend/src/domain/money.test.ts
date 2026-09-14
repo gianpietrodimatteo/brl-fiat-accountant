@@ -4,6 +4,7 @@ import {
   brlFromCentavos,
   brlFromUnitPriceSubUnits,
   ceilToCentavos,
+  centavosFromBrl,
   ceilToUnitPriceSubUnits,
   destinationMinorUnitsFromUnits,
   destinationUnitsFromMinorUnits,
@@ -11,6 +12,7 @@ import {
   MAX_EXACT_COUNT,
   maxMinorUnitsWithinCentavos,
   spreadMultiplierFromBasisPoints,
+  unitPriceSubUnitsFromBrl,
 } from "./money";
 
 describe("MAX_EXACT_COUNT", () => {
@@ -68,6 +70,22 @@ describe("brlFromCentavos", () => {
 
   it("rejects a fractional centavo count", () => {
     expect(() => brlFromCentavos(3144.5)).toThrow(RangeError);
+  });
+});
+
+describe("centavosFromBrl", () => {
+  it("reads decimal reais back into the centavo count they came from", () => {
+    expect(centavosFromBrl(new Decimal("31.44"))).toBe(3144);
+    expect(centavosFromBrl(new Decimal("0"))).toBe(0);
+    expect(centavosFromBrl(brlFromCentavos(MAX_EXACT_COUNT))).toBe(MAX_EXACT_COUNT);
+  });
+
+  it("rejects a value finer than a centavo instead of rounding it", () => {
+    expect(() => centavosFromBrl(new Decimal("31.441"))).toThrow(RangeError);
+  });
+
+  it("rejects a count past the exact integer range", () => {
+    expect(() => centavosFromBrl(new Decimal("90071992547409.92"))).toThrow(RangeError);
   });
 });
 
@@ -162,6 +180,17 @@ describe("unit price sub-units", () => {
 
   it("rejects a fractional sub-unit count", () => {
     expect(() => brlFromUnitPriceSubUnits(314375.5)).toThrow(RangeError);
+  });
+
+  it("reads decimal reais back into the sub-unit count they came from", () => {
+    expect(unitPriceSubUnitsFromBrl(brlFromUnitPriceSubUnits(314375))).toBe(314375);
+    expect(unitPriceSubUnitsFromBrl(brlFromUnitPriceSubUnits(MAX_EXACT_COUNT))).toBe(
+      MAX_EXACT_COUNT,
+    );
+  });
+
+  it("rejects a value finer than a sub-unit instead of rounding it", () => {
+    expect(() => unitPriceSubUnitsFromBrl(new Decimal("0.000000001"))).toThrow(RangeError);
   });
 });
 

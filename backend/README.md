@@ -150,6 +150,38 @@ authenticated user's; the body cannot name a user.
   not returned.
 - `401 unauthorized`: no valid bearer token.
 
+### Confirming a quote
+
+```
+POST /api/quotes/:id/confirm
+Authorization: Bearer <token>
+```
+
+No request body. Only the quote's owner can confirm it, only once, and only up to and including
+its `expiresAt`. Concurrent confirmations of the same quote record exactly one.
+
+- `200` → `{ "quote": { …the creation fields, "confirmedAt" } }`.
+- `400 validation_error`: `:id` isn't a positive integer (`abc`, `0`, `-3`, `1.5`).
+- `404 quote_not_found`: no such quote, or it belongs to another user. Both get the same
+  response, so another user's quote ids can't be probed.
+- `409 quote_already_confirmed`: the quote was confirmed before.
+- `410 quote_expired`: the quote is past `expiresAt`. Nothing is recorded, and it never shows
+  up in history.
+- `401 unauthorized`: no valid bearer token, checked before `:id` is validated.
+
+### Quote history
+
+```
+GET /api/quotes/history
+Authorization: Bearer <token>
+```
+
+- `200` → `{ "quotes": [{ "id", "destinationCurrency", "quantity", "unitPrice", "totalPrice",
+"createdAt", "confirmedAt" }, …] }`: the caller's confirmed quotes, most recently confirmed
+  first, in the units above. `[]` when there are none. Unconfirmed and expired quotes are never
+  listed, and there is no total.
+- `401 unauthorized`: no valid bearer token.
+
 ## Simulated Mode
 
 Simulated Mode swaps both exchange clients for local fakes that answer from hardcoded,
