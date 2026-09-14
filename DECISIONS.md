@@ -302,3 +302,4 @@ The backend Docker build never worked on a fresh clone. better-sqlite3 triggers 
 node:24-alpine has no Python or C++ compiler for it. The package already ships prebuilt binaries for Alpine (x64 and
 arm64), so both npm ci steps now run with --ignore-scripts and the prebuilt binary is loaded at runtime.
 
+
