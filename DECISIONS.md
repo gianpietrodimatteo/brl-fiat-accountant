@@ -261,3 +261,14 @@ The authentication is a standard Bearer header + CORS.
 The wire format will be Integer minor unites.
 
 The backend sets up the database automatically at startup (migrate + seed).
+
+Amounts go over the wire as JSON integers in minor units, exactly as stored: quantity in destination-currency minor
+units, unitPrice in BRL sub-units at 10^8, totalPrice in BRL centavos. Timestamps are ISO 8601 UTC strings. The route
+copies the stored integers without converting them, so what the client sees is what the database holds.
+
+This is safe because of the Epic 4 cap. Every stored amount is at most 2^53 − 1, so any JavaScript client reads it back
+exactly as a number. A request that would go over the cap gets 422 quantity_too_large, with the largest quantity that
+would fit.
+
+I rejected decimal strings ("31.44"). They would mean converting from integers to decimals on the way out and parsing
+again on the client, with a rounding risk each time.

@@ -13,9 +13,10 @@ function toDomain(row: SupportedCurrencyRow): SupportedCurrency {
 export class SupportedCurrencyRepository {
   constructor(private readonly db: Database.Database) {}
 
+  /** Every supported currency, ordered by code. */
   listAll(): SupportedCurrency[] {
     const rows = this.db
-      .prepare("SELECT * FROM supported_currencies")
+      .prepare("SELECT * FROM supported_currencies ORDER BY code")
       .all() as SupportedCurrencyRow[];
     return rows.map(toDomain);
   }

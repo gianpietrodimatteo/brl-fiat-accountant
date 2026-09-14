@@ -1,18 +1,25 @@
 import { STATUS_CODES } from "node:http";
 import type { FastifyError, FastifyInstance } from "fastify";
 
-/** The one body every non-2xx response carries. */
-export interface ErrorResponse {
+/**
+ * The one body every non-2xx response carries. An error may add its own machine-readable fields
+ * next to `code` and `message` (e.g. `maxQuantity`), but never replaces or renames them.
+ */
+export interface ErrorResponse<Details extends object = object> {
   error: {
     /** Stable, snake_case, for clients to branch on. */
     code: string;
     /** Human-readable; never a stack trace or an internal error's message. */
     message: string;
-  };
+  } & Details;
 }
 
-export function errorResponse(code: string, message: string): ErrorResponse {
-  return { error: { code, message } };
+export function errorResponse<Details extends object = object>(
+  code: string,
+  message: string,
+  details?: Details,
+): ErrorResponse<Details> {
+  return { error: { ...details, code, message } as ErrorResponse<Details>["error"] };
 }
 
 const INTERNAL_ERROR_MESSAGE = "An unexpected error occurred";

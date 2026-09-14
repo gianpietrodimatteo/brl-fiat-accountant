@@ -8,6 +8,7 @@ import {
 import { maxQuantityMinorUnits, priceQuote, type QuotePricing } from "../domain/pricing";
 import { expiresAtFrom } from "../domain/quoteLifecycle";
 import type { Quote } from "../domain/Quote";
+import type { SupportedCurrency } from "../domain/SupportedCurrency";
 import type { ConfirmQuoteResult, QuoteRepository } from "../repositories/QuoteRepository";
 import type { SupportedCurrencyRepository } from "../repositories/SupportedCurrencyRepository";
 import type { UserRepository } from "../repositories/UserRepository";
@@ -84,6 +85,11 @@ export class QuoteService {
     private readonly marketDataService: MarketDataService,
     private readonly clock: Clock = () => new Date(),
   ) {}
+
+  /** The destination currencies a quote can be asked for, ordered by code. */
+  listSupportedCurrencies(): SupportedCurrency[] {
+    return this.supportedCurrencyRepository.listAll();
+  }
 
   /**
    * Prices and persists a quote, or explains why it could not. Every rejection path returns a

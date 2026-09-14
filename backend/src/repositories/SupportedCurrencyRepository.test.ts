@@ -29,6 +29,10 @@ describe("SupportedCurrencyRepository", () => {
     expect(currencies.map((c) => c.code).sort()).toEqual(["ARS", "COP", "EUR", "MXN", "ZAR"]);
   });
 
+  it("lists them ordered by code, whatever order they were inserted in", () => {
+    expect(repository.listAll().map((c) => c.code)).toEqual(["ARS", "COP", "EUR", "MXN", "ZAR"]);
+  });
+
   it("reports a spec'd currency as supported", () => {
     expect(repository.isSupported("EUR")).toBe(true);
   });

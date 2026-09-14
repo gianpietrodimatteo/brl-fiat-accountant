@@ -7,8 +7,10 @@ import {
   type Services,
 } from "../services/createServices";
 import { registerAuthentication } from "./authentication";
+import { registerCurrenciesRoute } from "./currencies";
 import { registerErrorHandling } from "./errors";
 import { registerLoginRoute } from "./login";
+import { registerQuoteRoutes } from "./quotes";
 
 export const DEFAULT_CORS_ORIGIN = "http://localhost:3000";
 
@@ -53,6 +55,8 @@ export function buildApp({
   });
 
   registerLoginRoute(app);
+  registerCurrenciesRoute(app);
+  registerQuoteRoutes(app);
 
   return app;
 }

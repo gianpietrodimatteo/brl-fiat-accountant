@@ -104,6 +104,52 @@ A missing header, another scheme, an empty token or an unknown token is answered
 `onRequest: authenticate` (`src/http/authentication.ts`) and then reads the caller from
 `request.user`.
 
+### Money on the wire
+
+Every amount is a JSON integer in minor units, exactly the value stored in its column — never
+a float and never a decimal string. Each stored amount is capped at 2^53 − 1, so it is exact
+as a JavaScript `number`.
+
+| Field            | Unit                                                      | Example                    |
+| ---------------- | --------------------------------------------------------- | -------------------------- |
+| `quantity`       | destination-currency minor units                          | 100 MXN → `10000`          |
+| `unitPrice`      | BRL sub-units at 10^8 per destination-currency minor unit | R$0.00314375 → `314375`    |
+| `totalPrice`     | BRL centavos                                              | R$31.44 → `3144`           |
+| `createdAt` etc. | ISO 8601 UTC string                                       | `2026-09-14T12:00:10.000Z` |
+
+### Supported currencies
+
+```
+GET /api/currencies
+```
+
+No authentication. `200` → `{ "currencies": [{ "code": "ARS", "name": null }, …] }`, read from
+the `supported_currencies` table and ordered by `code`.
+
+### Creating a quote
+
+```
+POST /api/quotes
+Authorization: Bearer <token>
+{ "destinationCurrency": "MXN", "quantity": 10000 }
+```
+
+`quantity` counts destination-currency minor units. The spread applied is always the
+authenticated user's; the body cannot name a user.
+
+- `201` → `{ "quote": { "id", "destinationCurrency", "quantity", "unitPrice", "totalPrice",
+"createdAt", "expiresAt" } }`. The quote expires 10 seconds after `createdAt`.
+- `400 validation_error`: a field is missing, has the wrong JSON type (`"10000"`, `100.5`), or
+  an extra property is sent.
+- `400 invalid_quantity`: `quantity` is a whole number but not positive.
+- `400 unsupported_currency`: the code isn't one of the supported currencies (codes are
+  case-sensitive, so `mxn` is rejected).
+- `422 quantity_too_large`: the quantity, or the total it would cost, can't be stored exactly.
+  The error carries `maxQuantity`, the largest quantity that would have been quoted.
+- `503 no_quote_capability`: Binance can't price the request right now. The reason is logged,
+  not returned.
+- `401 unauthorized`: no valid bearer token.
+
 ## Simulated Mode
 
 Simulated Mode swaps both exchange clients for local fakes that answer from hardcoded,
