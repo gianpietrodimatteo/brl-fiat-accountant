@@ -1,8 +1,24 @@
 # BRL/Fiat Accountant
 
+A logged-in customer picks a target currency and the number of units to buy. The app quotes
+what that costs in Brazilian Reais (BRL), using USDT as a bridge currency and the best prices
+from Binance and OKX, with the customer's own spread added on top. A quote is valid for 10
+seconds. If the customer confirms it in time, it is recorded in their history.
+
+- [Prerequisites](#prerequisites)
+- [Running the stack](#running-the-stack)
+- [Simulated Mode](#simulated-mode): run with no network calls to the exchanges
+- [Using the app](#using-the-app)
+- [Configuration](#configuration)
+- [Tests](#tests)
+- [Development (without Docker)](#development-without-docker)
+- [Repository layout](#repository-layout)
+
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker with Docker Compose v2 (`docker compose`), to run the stack
+- Node.js 24 and npm, only to run the apps without Docker and to run the test suites (including
+  the e2e suite)
 
 ## Running the stack
 
@@ -18,8 +34,12 @@ docker compose up
 
 This builds and starts both services:
 
-- **backend** — http://localhost:3001 (Fastify HTTP API)
-- **frontend** — http://localhost:3000 (Next.js app)
+- **backend** at http://localhost:3001 (Fastify HTTP API)
+- **frontend** at http://localhost:3000 (Next.js app)
+
+The images are built the first time. After changing code (or `NEXT_PUBLIC_API_BASE_URL`), add
+`--build` so they are rebuilt: `docker compose up --build`. Stop the stack with `Ctrl+C`, or
+`docker compose down` if it runs detached.
 
 On startup the backend applies any pending database migrations and seeds the pre-defined
 users and supported currencies before it accepts requests, so a fresh `docker compose up`
@@ -56,11 +76,13 @@ Or add this line to a `.env` file at the repository root, so plain `docker compo
 EXCHANGE_MODE=simulated
 ```
 
-Without Docker, from `backend/`:
+Without Docker, from `backend/` (after `npm install`):
 
 ```bash
 EXCHANGE_MODE=simulated npm run dev
 ```
+
+Then start the frontend as described in [Development (without Docker)](#development-without-docker).
 
 ### Things to know
 
@@ -81,6 +103,36 @@ EXCHANGE_MODE=simulated npm run dev
 The frontend needs no configuration for either mode. See
 [backend/README.md](backend/README.md#simulated-mode) for how the fakes are wired.
 
+## Using the app
+
+Open http://localhost:3000 and log in with one of the seeded users. Login is by username only:
+there is no password, registration or account recovery, by design. Any other username is
+rejected.
+
+| Username | Spread |
+| -------- | ------ |
+| `alice`  | 0%     |
+| `bob`    | 0.6%   |
+| `carol`  | 1%     |
+
+A user's spread is added to the price of their own quotes only. The supported target
+currencies are `EUR`, `ARS`, `COP`, `MXN` and `ZAR`.
+
+The app has three screens:
+
+1. **Login** (`/login`): a username field. The session lasts until you close the browser tab
+   (a reload keeps it). There is no logout button.
+2. **Quotation** (`/quotation`): choose a currency, type a quantity in units of that currency
+   (up to 2 decimals, e.g. `100.50`) and create a quote. It shows the unit price, the total in
+   BRL (rounded up to the centavo) and when the quote expires. **Confirm** within 10 seconds.
+   After that, confirming is rejected with an "expired" message, nothing is recorded, and you
+   create a new quote.
+3. **History** (`/history`): your confirmed quotes, most recently confirmed first, with the
+   currency, quantity, unit price, total price and timestamp. Unconfirmed and expired quotes
+   never appear.
+
+The HTTP API behind these screens is documented in [backend/README.md](backend/README.md).
+
 ## Configuration
 
 The following environment variables can be overridden (e.g. via a `.env` file at the repo
@@ -95,9 +147,66 @@ root, or exported in your shell) before running `docker compose up`:
 | `CORS_ORIGIN`              | `http://localhost:3000` | The one browser origin (the frontend) allowed to call the backend API               |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:3001` | Backend URL the browser calls; baked in at build time (`docker compose up --build`) |
 
+## Tests
+
+There are three suites, each in its own npm package. They need Node.js 24, not Docker. Each
+block below starts from the repository root.
+
+**Backend** (Vitest, against an in-memory SQLite database). See
+[backend/README.md](backend/README.md#testing).
+
+```bash
+cd backend
+npm install
+npm test
+```
+
+**Frontend** (Vitest and React Testing Library). See [frontend/README.md](frontend/README.md#tests).
+
+```bash
+cd frontend
+npm install
+npm test
+```
+
+**End-to-end** (Playwright, always in Simulated Mode). It starts its own backend and frontend on
+ports `3100` and `3101`, so a Docker stack on `3000`/`3001` can keep running, but a `next dev`
+in `frontend/` can't. See [e2e/README.md](e2e/README.md) for the details.
+
+```bash
+cd e2e
+npm install
+npx playwright install chromium
+npm test
+```
+
 ## Development (without Docker)
 
-Each app can also be run directly with `npm run dev` from `backend/` or `frontend/` — see
+Each app can also be run directly, in its own terminal. The defaults already point them at each
+other (frontend on `3000`, backend on `3001`):
+
+```bash
+cd backend
+npm install
+EXCHANGE_MODE=simulated npm run dev
+```
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Drop `EXCHANGE_MODE=simulated` to run the backend in live mode. See
 [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md) for
-per-app setup, scripts, and (for the backend) database instructions. This requires
-Node.js 24.
+per-app setup, scripts, and (for the backend) database instructions. This requires Node.js 24.
+
+## Repository layout
+
+- [`backend/`](backend/README.md): Fastify HTTP API, SQLite persistence, pricing, the Binance
+  and OKX clients and their Simulated Mode fakes
+- [`frontend/`](frontend/README.md): Next.js app with the login, quotation and history screens
+- [`e2e/`](e2e/README.md): Playwright end-to-end suite, run in Simulated Mode
+- [`business/`](business/): the epics and tickets the work was planned in
+- [`DECISIONS.md`](DECISIONS.md): the architectural and technical decisions, with their reasoning
+- [`docker-compose.yml`](docker-compose.yml): runs the backend and frontend together

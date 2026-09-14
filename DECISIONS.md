@@ -227,7 +227,12 @@ rate, so it's checked once the composed price is known, and the rejection return
 rate. Both return a dedicated quantity_too_large result, separate from invalid_quantity, which stays for malformed
 input.
 
-Obs: Back in Epic 2 I wrote that SQLite saves integers as 64-bit unsigned integers. That was wrong. SQLite's INTEGER is a signed 64-bit integer, so it goes from −2^63 to 2^63−1. It uses fewer bytes for small values, but the range is the same. I only found this out while looking for our real bottleneck for the caps above. It doesn't change the Epic 2 decision: we still store money as integers, and we never store a negative amount, so the missing sign bit costs us nothing. It also doesn't matter much in practice, because the JavaScript side is the real limit at 2^53−1, far below what SQLite can hold.
+Obs: Back in Epic 2 I wrote that SQLite saves integers as 64-bit unsigned integers. That was wrong. SQLite's INTEGER is
+a signed 64-bit integer, so it goes from −2^63 to 2^63−1. It uses fewer bytes for small values, but the range is the
+same. I only found this out while looking for our real bottleneck for the caps above. It doesn't change the Epic 2
+decision: we still store money as integers, and we never store a negative amount, so the missing sign bit costs us
+nothing. It also doesn't matter much in practice, because the JavaScript side is the real limit at 2^53−1, far below
+what SQLite can hold.
 
 While doing this I found that decimal.js rounds every operation to 20 significant digits, half-up. Rounding the ask/bid
 division before the final ceiling could over- or undercharge by a centavo, even on small totals (R$3.03 computed as R$
@@ -292,4 +297,8 @@ though.
 # 7 - Documentation and Delivery
 
 e2e testing will only be applied to simulated mode. Testing live api integration is done manually.
+
+The backend Docker build never worked on a fresh clone. better-sqlite3 triggers npm's default node-gyp rebuild, and
+node:24-alpine has no Python or C++ compiler for it. The package already ships prebuilt binaries for Alpine (x64 and
+arm64), so both npm ci steps now run with --ignore-scripts and the prebuilt binary is loaded at runtime.
 

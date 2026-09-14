@@ -219,7 +219,7 @@ SQLite, accessed only through the repository layer (`src/repositories/`) — see
 
 The database is a single file. Its path is controlled by the `SQLITE_DB_PATH` env var:
 
-- Running locally (`npm run dev`, `npm run migrate`, `npm test`, etc.): defaults to
+- Running locally (`npm run dev`, `npm run migrate`, `npm run seed`, etc.): defaults to
   `backend/data/app.db`. This path is gitignored.
 - Running in Docker: set to `/data/app.db` inside the container by `docker-compose.yml`,
   which lives on the named volume `sqlite-data` (not a host bind mount).
@@ -276,19 +276,17 @@ Or run a one-off query without an interactive session:
 sqlite3 backend/data/app.db "SELECT * FROM users;"
 ```
 
-**In Docker**, the file lives on the `sqlite-data` volume, not on your host filesystem.
-Query it inside the running container:
-
-```bash
-docker compose exec backend sqlite3 /data/app.db
-```
-
-If the container image doesn't have `sqlite3` installed, copy the file out first:
+**In Docker**, the file lives on the `sqlite-data` volume, not on your host filesystem. The
+backend image (`node:24-alpine`) doesn't include the `sqlite3` CLI, so copy the file out of the
+running container and open the copy:
 
 ```bash
 docker compose cp backend:/data/app.db ./app.db
 sqlite3 ./app.db
 ```
+
+The database runs in WAL mode, so rows written in the last few moments may still be in
+`/data/app.db-wal`. Copy that file next to the copy too (`./app.db-wal`) if they are missing.
 
 ### Schema
 
@@ -296,8 +294,9 @@ sqlite3 ./app.db
   basis points).
 - `supported_currencies` — the fixed set of destination currencies (`EUR`, `ARS`, `COP`,
   `MXN`, `ZAR`).
-- `quotes` — a user's expirable currency quote (amounts stored as integer BRL centavos, per
-  `DECISIONS.md`).
+- `quotes` — a user's expirable currency quote. Amounts are stored as integers, in the same
+  units as [on the wire](#money-on-the-wire): `quantity` in destination-currency minor units,
+  `unit_price` in BRL sub-units at 10^8, `total_price` in BRL centavos (per `DECISIONS.md`).
 - `sessions` — username-only login sessions (opaque `token`, linked to a `user_id`); no
   password/expiry/recovery.
 
