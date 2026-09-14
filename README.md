@@ -31,12 +31,13 @@ how to inspect the database directly (locally or inside the container).
 The following environment variables can be overridden (e.g. via a `.env` file at the repo
 root, or exported in your shell) before running `docker compose up`:
 
-| Variable         | Default                 | Description                                                           |
-| ---------------- | ----------------------- | --------------------------------------------------------------------- |
-| `BACKEND_PORT`   | `3001`                  | Port the backend listens on and is exposed at                         |
-| `FRONTEND_PORT`  | `3000`                  | Port the frontend listens on and is exposed at                        |
-| `SQLITE_DB_PATH` | `/data/app.db`          | Path (inside the backend container) to the SQLite database file       |
-| `CORS_ORIGIN`    | `http://localhost:3000` | The one browser origin (the frontend) allowed to call the backend API |
+| Variable                   | Default                 | Description                                                                         |
+| -------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| `BACKEND_PORT`             | `3001`                  | Port the backend listens on and is exposed at                                       |
+| `FRONTEND_PORT`            | `3000`                  | Port the frontend listens on and is exposed at                                      |
+| `SQLITE_DB_PATH`           | `/data/app.db`          | Path (inside the backend container) to the SQLite database file                     |
+| `CORS_ORIGIN`              | `http://localhost:3000` | The one browser origin (the frontend) allowed to call the backend API               |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:3001` | Backend URL the browser calls; baked in at build time (`docker compose up --build`) |
 
 ## Development (without Docker)
 

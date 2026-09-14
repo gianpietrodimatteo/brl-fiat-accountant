@@ -5,6 +5,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# `next build` inlines NEXT_PUBLIC_* into the browser bundle, so it has to be known now.
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 RUN npm run build
 
 FROM node:24-alpine
