@@ -182,63 +182,70 @@ export default function QuotationPage() {
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
-      <h1 className="text-2xl font-semibold">New quote</h1>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">New quote</h1>
+        <p className="mt-1 text-sm text-muted">Priced in BRL, bridged through USDT.</p>
+      </div>
 
-      <form onSubmit={handleCreate} className="flex flex-col gap-3">
-        <label htmlFor="currency" className="text-sm">
-          Currency
-        </label>
-        <select
-          id="currency"
-          name="currency"
-          value={currency}
-          onChange={(event) => setCurrency(event.target.value)}
-          disabled={currencies.status !== "loaded"}
-          className="rounded border border-foreground/20 bg-transparent px-3 py-2 disabled:opacity-50"
-        >
-          <option value="">
-            {currencies.status === "loading" ? "Loading currencies…" : "Select a currency"}
-          </option>
-          {currencies.status === "loaded" &&
-            currencies.currencies.map(({ code, name }) => (
-              <option key={code} value={code}>
-                {name === null ? code : `${code} — ${name}`}
-              </option>
-            ))}
-        </select>
-        {currencies.status === "failed" && (
-          <div role="alert" className="flex items-center gap-3 text-sm text-red-600">
-            <p>Couldn&apos;t load the currencies.</p>
-            <button type="button" onClick={retryCurrencies} className="underline">
-              Retry
-            </button>
-          </div>
-        )}
+      <form onSubmit={handleCreate} className={`flex flex-col gap-5 ${CARD_CLASS}`}>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="currency" className={LABEL_CLASS}>
+            Currency
+          </label>
+          <select
+            id="currency"
+            name="currency"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            disabled={currencies.status !== "loaded"}
+            className={`${FIELD_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <option value="">
+              {currencies.status === "loading" ? "Loading currencies…" : "Select a currency"}
+            </option>
+            {currencies.status === "loaded" &&
+              currencies.currencies.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {name === null ? code : `${code} — ${name}`}
+                </option>
+              ))}
+          </select>
+          {currencies.status === "failed" && (
+            <div role="alert" className={`flex items-center justify-between ${ALERT_CLASS}`}>
+              <p>Couldn&apos;t load the currencies.</p>
+              <button
+                type="button"
+                onClick={retryCurrencies}
+                className="font-medium underline underline-offset-4 hover:text-foreground"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
 
-        <label htmlFor="quantity" className="text-sm">
-          Quantity
-        </label>
-        <input
-          id="quantity"
-          name="quantity"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="100.00"
-          value={quantityText}
-          onChange={(event) => setQuantityText(event.target.value)}
-          className="rounded border border-foreground/20 bg-transparent px-3 py-2"
-        />
+        <div className="flex flex-col gap-2">
+          <label htmlFor="quantity" className={LABEL_CLASS}>
+            Quantity
+          </label>
+          <input
+            id="quantity"
+            name="quantity"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="100.00"
+            value={quantityText}
+            onChange={(event) => setQuantityText(event.target.value)}
+            className={`${FIELD_CLASS} font-mono placeholder:text-muted/50`}
+          />
+        </div>
 
-        <button
-          type="submit"
-          disabled={!canCreate}
-          className="rounded bg-foreground px-3 py-2 text-background disabled:opacity-50"
-        >
+        <button type="submit" disabled={!canCreate} className={PRIMARY_BUTTON_CLASS}>
           Create quote
         </button>
         {createFailure !== null && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className={ALERT_CLASS}>
             {createFailureMessage(createFailure)}
           </p>
         )}
@@ -247,19 +254,23 @@ export default function QuotationPage() {
       {quote !== null && (
         <section
           aria-label="Quote"
-          className="flex flex-col gap-3 rounded border border-foreground/20 p-4"
+          className={`flex flex-col gap-5 ${CARD_CLASS} border-accent/30`}
         >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt>Currency</dt>
-            <dd>{quote.destinationCurrency}</dd>
-            <dt>Quantity</dt>
-            <dd>{formatQuantity(quote.quantity)}</dd>
-            <dt>Unit price</dt>
-            <dd>{formatUnitPrice(quote.unitPrice)}</dd>
-            <dt>Total price</dt>
-            <dd className="font-semibold">{formatBrl(quote.totalPrice)}</dd>
-            <dt>Expires at</dt>
-            <dd>{formatTimestamp(quote.expiresAt)}</dd>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
+            <dt className="text-muted">Currency</dt>
+            <dd className="text-right font-medium">{quote.destinationCurrency}</dd>
+            <dt className="text-muted">Quantity</dt>
+            <dd className="text-right font-mono tabular-nums">{formatQuantity(quote.quantity)}</dd>
+            <dt className="text-muted">Unit price</dt>
+            <dd className="text-right font-mono tabular-nums">
+              {formatUnitPrice(quote.unitPrice)}
+            </dd>
+            <dt className="text-muted">Expires at</dt>
+            <dd className="text-right">{formatTimestamp(quote.expiresAt)}</dd>
+            <dt className="self-center border-t border-line pt-3 text-muted">Total price</dt>
+            <dd className="border-t border-line pt-3 text-right font-mono text-2xl font-semibold tabular-nums">
+              {formatBrl(quote.totalPrice)}
+            </dd>
           </dl>
 
           {!isFinal(confirmOutcome) && (
@@ -267,7 +278,7 @@ export default function QuotationPage() {
               type="button"
               onClick={handleConfirm}
               disabled={busy}
-              className="rounded bg-foreground px-3 py-2 text-background disabled:opacity-50"
+              className={PRIMARY_BUTTON_CLASS}
             >
               Confirm
             </button>
@@ -279,41 +290,53 @@ export default function QuotationPage() {
   );
 }
 
+const CARD_CLASS = "rounded-xl border border-line bg-surface p-6 shadow-2xl shadow-black/40";
+const LABEL_CLASS = "text-xs font-medium uppercase tracking-wider text-muted";
+const FIELD_CLASS =
+  "rounded-md border border-line bg-background px-3 py-2.5 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent";
+const PRIMARY_BUTTON_CLASS =
+  "rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40";
+const ALERT_CLASS =
+  "gap-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger";
+
 function ConfirmMessage({ outcome }: { outcome: ConfirmOutcome }) {
   switch (outcome.kind) {
     case "confirmed":
       return (
-        <p role="status" className="text-sm text-green-700">
+        <p
+          role="status"
+          className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
+        >
           Quote confirmed at {formatTimestamp(outcome.confirmedAt)}.
         </p>
       );
     case "expired":
       return (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={ALERT_CLASS}>
           This quote has expired. Create a new quote to get a current price.
         </p>
       );
     case "already_confirmed":
       return (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={ALERT_CLASS}>
           This quote was already confirmed.
         </p>
       );
     case "not_found":
       return (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={ALERT_CLASS}>
           This quote could not be found. Create a new quote.
         </p>
       );
     case "unreachable":
       return (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={ALERT_CLASS}>
           {UNREACHABLE_MESSAGE}
         </p>
       );
     case "unexpected":
       return (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={ALERT_CLASS}>
           {UNEXPECTED_MESSAGE}
         </p>
       );

@@ -8,7 +8,7 @@ import { SESSION_STORAGE_KEY, SessionProvider } from "@/lib/session";
 import HistoryPage from "./page";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/history" }));
 vi.mock("@/lib/api", () => ({ listHistory: vi.fn() }));
 
 const TOKEN = "0b8e6a52-3c1f-4f7e-9d2a-6f1b2c3d4e5f";

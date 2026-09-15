@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useSession } from "@/lib/session";
 
@@ -12,6 +12,7 @@ import { useSession } from "@/lib/session";
 export function AuthenticatedShell({ children }: { children: ReactNode }) {
   const { ready, session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (ready && session === null) {
@@ -25,20 +26,50 @@ export function AuthenticatedShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-foreground/10 px-6 py-4">
-        <nav className="flex gap-4">
-          <Link href="/quotation" className="hover:underline">
-            Quotation
-          </Link>
-          <Link href="/history" className="hover:underline">
-            History
-          </Link>
-        </nav>
-        <p className="text-sm">
-          Logged in as <strong>{session.username}</strong>
-        </p>
+      <header className="border-b border-line bg-surface/60 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center gap-8">
+            <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              <span aria-hidden className="size-2 rounded-full bg-accent" />
+              BRL Fiat Accountant
+            </span>
+            <nav className="flex gap-1 text-sm">
+              <NavLink href="/quotation" active={pathname === "/quotation"}>
+                Quotation
+              </NavLink>
+              <NavLink href="/history" active={pathname === "/history"}>
+                History
+              </NavLink>
+            </nav>
+          </div>
+          <p className="text-sm text-muted">
+            Logged in as <strong className="font-medium text-foreground">{session.username}</strong>
+          </p>
+        </div>
       </header>
-      <main className="flex-1 px-6 py-8">{children}</main>
+      <main className="flex flex-1 justify-center px-6 py-12">{children}</main>
     </>
+  );
+}
+
+function NavLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`rounded-md px-3 py-1.5 transition-colors ${
+        active ? "bg-white/5 text-foreground" : "text-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </Link>
   );
 }

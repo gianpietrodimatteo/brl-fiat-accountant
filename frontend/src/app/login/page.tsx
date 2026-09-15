@@ -54,31 +54,49 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-8">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-xs flex-col gap-3">
-        <h1 className="text-2xl font-semibold">Log in</h1>
-        <label htmlFor="username" className="text-sm">
-          Username
-        </label>
-        <input
-          id="username"
-          name="username"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          className="rounded border border-foreground/20 bg-transparent px-3 py-2"
-        />
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-8">
+      <p className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <span aria-hidden className="size-2 rounded-full bg-accent" />
+        BRL Fiat Accountant
+      </p>
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full max-w-sm flex-col gap-5 rounded-xl border border-line bg-surface p-8 shadow-2xl shadow-black/40"
+      >
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Log in</h1>
+          <p className="mt-1 text-sm text-muted">Enter your username to continue.</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label
+            htmlFor="username"
+            className="text-xs font-medium uppercase tracking-wider text-muted"
+          >
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            className="rounded-md border border-line bg-background px-3 py-2.5 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+          />
+        </div>
         <button
           type="submit"
           disabled={trimmed === "" || pending}
-          className="rounded bg-foreground px-3 py-2 text-background disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Log in
         </button>
         {failure !== null && (
-          <p role="alert" className="text-sm text-red-600">
+          <p
+            role="alert"
+            className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
             {FAILURE_MESSAGES[failure]}
           </p>
         )}

@@ -6,7 +6,7 @@ import { SESSION_STORAGE_KEY, SessionProvider, useSession } from "@/lib/session"
 import { AuthenticatedShell } from "./authenticated-shell";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/quotation" }));
 vi.mock("@/lib/api", () => ({ listHistory: vi.fn() }));
 
 const TOKEN = "0b8e6a52-3c1f-4f7e-9d2a-6f1b2c3d4e5f";

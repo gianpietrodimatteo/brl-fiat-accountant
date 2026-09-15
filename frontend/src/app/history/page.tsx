@@ -49,36 +49,49 @@ export default function HistoryPage() {
 
   return (
     <div className="flex w-full max-w-4xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Confirmed quotes</h1>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Confirmed quotes</h1>
+        <p className="mt-1 text-sm text-muted">Newest confirmation first.</p>
+      </div>
       <HistoryContent history={history} onRetry={retry} />
     </div>
   );
 }
 
+const PLACEHOLDER_CLASS =
+  "rounded-xl border border-line bg-surface px-6 py-10 text-center text-sm text-muted";
+
 function HistoryContent({ history, onRetry }: { history: HistoryState; onRetry: () => void }) {
   switch (history.status) {
     case "loading":
       return (
-        <p role="status" className="text-sm">
+        <p role="status" className={PLACEHOLDER_CLASS}>
           Loading history…
         </p>
       );
     case "failed":
       return (
-        <div role="alert" className="flex items-center gap-3 text-sm text-red-600">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
           <p>
             {history.reason === "unreachable"
               ? "Couldn't reach the server. Please try again."
               : "Something went wrong. Please try again."}
           </p>
-          <button type="button" onClick={onRetry} className="underline">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="font-medium underline underline-offset-4 hover:text-foreground"
+          >
             Retry
           </button>
         </div>
       );
     case "loaded":
       if (history.quotes.length === 0) {
-        return <p className="text-sm">No confirmed quotes yet.</p>;
+        return <p className={PLACEHOLDER_CLASS}>No confirmed quotes yet.</p>;
       }
       return <HistoryTable quotes={history.quotes} />;
   }
@@ -86,39 +99,46 @@ function HistoryContent({ history, onRetry }: { history: HistoryState; onRetry: 
 
 function HistoryTable({ quotes }: { quotes: HistoryItem[] }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-2xl shadow-black/40">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-foreground/20">
+        <thead className="border-b border-line text-xs uppercase tracking-wider text-muted">
           <tr>
-            <th scope="col" className="px-3 py-2 font-medium">
+            <th scope="col" className="px-4 py-3 font-medium">
               Currency
             </th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">
+            <th scope="col" className="px-4 py-3 text-right font-medium">
               Quantity
             </th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">
+            <th scope="col" className="px-4 py-3 text-right font-medium">
               Unit price
             </th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">
+            <th scope="col" className="px-4 py-3 text-right font-medium">
               Total price
             </th>
-            <th scope="col" className="px-3 py-2 font-medium">
+            <th scope="col" className="px-4 py-3 font-medium">
               Confirmed at
             </th>
           </tr>
         </thead>
         <tbody>
           {quotes.map((quote) => (
-            <tr key={quote.id} className="border-b border-foreground/10">
-              <td className="px-3 py-2">{quote.destinationCurrency}</td>
-              <td className="px-3 py-2 text-right tabular-nums">
+            <tr
+              key={quote.id}
+              className="border-b border-line/60 transition-colors last:border-0 hover:bg-white/[0.02]"
+            >
+              <td className="px-4 py-3 font-medium">{quote.destinationCurrency}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums">
                 {formatQuantity(quote.quantity)}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">
+              <td className="px-4 py-3 text-right font-mono tabular-nums">
                 {formatUnitPrice(quote.unitPrice)}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatBrl(quote.totalPrice)}</td>
-              <td className="px-3 py-2">{formatTimestamp(quote.confirmedAt)}</td>
+              <td className="px-4 py-3 text-right font-mono font-semibold tabular-nums">
+                {formatBrl(quote.totalPrice)}
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-muted">
+                {formatTimestamp(quote.confirmedAt)}
+              </td>
             </tr>
           ))}
         </tbody>
