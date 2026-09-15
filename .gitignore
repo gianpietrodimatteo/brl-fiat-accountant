@@ -1,3 +1,16 @@
 .idea/*
 **/.DS_Store
 
+# Local environment files (docker compose reads .env at the repository root)
+.env
+.env.*
+!.env.example
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
